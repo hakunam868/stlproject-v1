@@ -49,10 +49,21 @@ fn parse_binary(bytes: &[u8], triangle_count: usize) -> Result<Mesh, StlError> {
         let mut vertices = [Vec3::default(); 3];
         for (vertex_index, vertex) in vertices.iter_mut().enumerate() {
             let offset = start + vertex_index * 12;
+            let coordinates = [
+                read_f32(bytes, offset),
+                read_f32(bytes, offset + 4),
+                read_f32(bytes, offset + 8),
+            ];
+            if !coordinates.iter().all(|value| value.is_finite()) {
+                return Err(StlError::InvalidFormat(format!(
+                    "non-finite coordinate in binary triangle {}",
+                    index + 1
+                )));
+            }
             *vertex = Vec3::new(
-                read_f32(bytes, offset) as f64,
-                read_f32(bytes, offset + 4) as f64,
-                read_f32(bytes, offset + 8) as f64,
+                coordinates[0] as f64,
+                coordinates[1] as f64,
+                coordinates[2] as f64,
             );
         }
         triangles.push(Triangle::new(vertices[0], vertices[1], vertices[2]));

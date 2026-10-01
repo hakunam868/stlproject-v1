@@ -17,13 +17,21 @@ fn main() -> ExitCode {
         Ok(mesh) => {
             let report = analyze(&mesh);
             println!("Total faces (triangles): {}", report.triangle_count);
-            println!("Triangle size counts (heuristic):");
-            println!("  Sliver: {}", report.triangle_sizes.sliver);
+            println!(
+                "Unique vertices (exact coordinates): {}",
+                report.unique_vertex_count
+            );
+            println!("Triangle size counts (relative to bounding-box diagonal):");
+            println!("  Micro: {}", report.triangle_sizes.micro);
             println!("  Medium: {}", report.triangle_sizes.medium);
             println!("  Large: {}", report.triangle_sizes.large);
             println!(
                 "  Extremely large: {}",
                 report.triangle_sizes.extremely_large
+            );
+            println!(
+                "Sliver triangles (shape quality): {}",
+                report.triangle_shapes.sliver
             );
             println!("Surface area: {:.6}", report.surface_area);
             println!("Degenerate triangles: {}", report.degenerate_triangles);
@@ -31,6 +39,10 @@ fn main() -> ExitCode {
                 Some(bounds) => {
                     println!("Bounds min: {}", bounds.min);
                     println!("Bounds max: {}", bounds.max);
+                    println!(
+                        "Bounding-box diagonal: {:.6}",
+                        (bounds.max - bounds.min).length()
+                    );
                 }
                 None => println!("Bounds: empty mesh"),
             }

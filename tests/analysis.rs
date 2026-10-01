@@ -25,34 +25,83 @@ fn reports_area_bounds_and_degenerate_triangles() {
 }
 
 #[test]
-fn classifies_triangle_sizes_and_counts_unique_incident_edges() {
-    let origin = Vec3::new(0.0, 0.0, 0.0);
+fn classifies_sizes_relative_to_bounds_and_slivers_by_shape() {
     let mesh = Mesh::new(vec![
         Triangle::new(
-            origin,
-            Vec3::new(100.0, 0.0, 0.0),
-            Vec3::new(100.0, 0.001, 0.0),
-        ),
-        Triangle::new(origin, Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)),
-        Triangle::new(
-            origin,
-            Vec3::new(100.0, 0.0, 0.0),
-            Vec3::new(0.0, 100.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1000.0, 0.0, 0.0),
+            Vec3::new(0.0, 1000.0, 0.0),
         ),
         Triangle::new(
-            origin,
-            Vec3::new(10_000.0, 0.0, 0.0),
-            Vec3::new(0.0, 10_000.0, 0.0),
+            Vec3::new(10.0, 10.0, 0.0),
+            Vec3::new(10.001, 10.0, 0.0),
+            Vec3::new(10.0, 10.001, 0.0),
         ),
-        Triangle::new(origin, Vec3::new(0.0, 2.0, 0.0), Vec3::new(-2.0, 0.0, 0.0)),
-        Triangle::new(origin, Vec3::new(-2.0, 0.0, 0.0), Vec3::new(0.0, -2.0, 0.0)),
+        Triangle::new(
+            Vec3::new(100.0, 100.0, 0.0),
+            Vec3::new(150.0, 100.0, 0.0),
+            Vec3::new(100.0, 150.0, 0.0),
+        ),
+        Triangle::new(
+            Vec3::new(300.0, 300.0, 0.0),
+            Vec3::new(500.0, 300.0, 0.0),
+            Vec3::new(300.0, 500.0, 0.0),
+        ),
+        Triangle::new(
+            Vec3::new(600.0, 600.0, 0.0),
+            Vec3::new(610.0, 600.0, 0.0),
+            Vec3::new(610.0, 600.001, 0.0),
+        ),
     ]);
 
     let report = analyze(&mesh);
-    assert_eq!(report.triangle_sizes.sliver, 1);
-    assert_eq!(report.triangle_sizes.medium, 3);
+    assert_eq!(report.triangle_sizes.micro, 1);
+    assert_eq!(report.triangle_sizes.medium, 2);
     assert_eq!(report.triangle_sizes.large, 1);
     assert_eq!(report.triangle_sizes.extremely_large, 1);
-    assert_eq!(report.high_incidence_vertices[0].position, origin);
-    assert_eq!(report.high_incidence_vertices[0].edge_count, 10);
+    assert_eq!(report.triangle_shapes.sliver, 1);
+}
+
+#[test]
+fn reports_exact_unique_vertices_and_ignores_self_edges() {
+    let a = Vec3::new(0.0, 0.0, 0.0);
+    let b = Vec3::new(1.0, 0.0, 0.0);
+    let c = Vec3::new(0.0, 1.0, 0.0);
+    let mesh = Mesh::new(vec![
+        Triangle::new(a, b, c),
+        Triangle::new(a, b, c),
+        Triangle::new(a, a, b),
+    ]);
+
+    let report = analyze(&mesh);
+    assert_eq!(report.unique_vertex_count, 3);
+    assert_eq!(mesh.vertex_count(), 3);
+    assert!(report
+        .high_incidence_vertices
+        .iter()
+        .any(|vertex| vertex.position == a && vertex.edge_count == 2));
+    assert!(report
+        .high_incidence_vertices
+        .iter()
+        .all(|vertex| vertex.edge_count == 2));
+}
+
+#[test]
+fn tiny_valid_triangle_is_not_marked_degenerate() {
+    let mesh = Mesh::new(vec![
+        Triangle::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1e-6, 0.0, 0.0),
+            Vec3::new(0.0, 1e-6, 0.0),
+        ),
+        Triangle::new(
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(0.0, 10.0, 0.0),
+            Vec3::new(10.0, 10.0, 0.0),
+        ),
+    ]);
+
+    let report = analyze(&mesh);
+    assert_eq!(report.degenerate_triangles, 0);
+    assert_eq!(report.triangle_sizes.micro, 1);
 }
