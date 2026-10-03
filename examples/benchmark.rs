@@ -1,7 +1,9 @@
 use std::env;
 use std::time::Instant;
 
-use stl_analyzer::{analyze, parse_stl};
+use stl_analyzer::analysis::{analyze, Thresholds};
+use stl_analyzer::geometry::Mesh;
+use stl_analyzer::stl::parse_file;
 
 fn main() {
     let Some(path) = env::args().nth(1) else {
@@ -15,9 +17,10 @@ fn main() {
     let start = Instant::now();
     let mut triangle_count = 0;
     for _ in 0..iterations {
-        let bytes = std::fs::read(&path).expect("failed to read STL file");
-        let mesh = parse_stl(&bytes).expect("failed to parse STL file");
-        triangle_count = analyze(&mesh).triangle_count;
+        let parsed = parse_file(std::path::Path::new(&path)).expect("failed to parse STL file");
+        let mesh = Mesh::from_triangles(parsed.triangles);
+        triangle_count = mesh.triangles.len();
+        let _ = analyze(&mesh, Thresholds::default());
     }
     let elapsed = start.elapsed();
     let throughput = triangle_count as f64 * iterations as f64 / elapsed.as_secs_f64();
