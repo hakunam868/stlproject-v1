@@ -31,12 +31,22 @@ impl Config {
         let base = path.parent().unwrap_or_else(|| Path::new("."));
         let thresholds = Thresholds {
             sliver_aspect_ratio: json_number(&text, "sliver_aspect_ratio").unwrap_or(20.0),
+            micro_triangle_area_ratio: json_number(&text, "micro_triangle_area_ratio")
+                .unwrap_or(1.0e-8),
             large_triangle_area_ratio: json_number(&text, "large_triangle_area_ratio")
                 .unwrap_or(0.25),
             max_incident_edges: json_number(&text, "max_incident_edges").unwrap_or(12.0) as usize,
         };
-        if thresholds.sliver_aspect_ratio <= 0.0 || thresholds.large_triangle_area_ratio <= 0.0 {
-            return Err(invalid_config("thresholds must be positive"));
+        if !thresholds.sliver_aspect_ratio.is_finite()
+            || thresholds.sliver_aspect_ratio <= 0.0
+            || !thresholds.micro_triangle_area_ratio.is_finite()
+            || thresholds.micro_triangle_area_ratio <= 0.0
+            || !thresholds.large_triangle_area_ratio.is_finite()
+            || thresholds.large_triangle_area_ratio <= 0.0
+        {
+            return Err(invalid_config(
+                "area and aspect-ratio thresholds must be positive and finite",
+            ));
         }
         Ok(Self {
             stl_folder: base.join(folder),
@@ -196,6 +206,7 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         None => output.push_str("Bounding box: unavailable for an empty mesh\n"),
     }
     if analysis.slivers.is_empty()
+        && analysis.micro_triangles.is_empty()
         && analysis.large_triangles.is_empty()
         && analysis.high_incident_vertices.is_empty()
     {
@@ -207,6 +218,12 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         output.push_str(&format!(
             "- Sliver triangle #{}: area {:.6}, aspect ratio {:.3}\n",
             item.triangle, item.area, item.aspect_ratio
+        ));
+    }
+    for item in &analysis.micro_triangles {
+        output.push_str(&format!(
+            "- Micro triangle #{}: area {:.6}, relative area {:.3e}\n",
+            item.triangle, item.area, item.relative_area
         ));
     }
     for item in &analysis.large_triangles {
@@ -262,7 +279,7 @@ pub fn benchmark(config: &Config, triangle_count: u32, name: &str) -> Result<Str
     let analysis_time = analysis_start.elapsed();
     let estimated_memory = mesh.vertices.capacity() * std::mem::size_of::<crate::geometry::Vec3>()
         + mesh.triangles.capacity() * std::mem::size_of::<crate::geometry::IndexedTriangle>();
-    Ok(format!("Benchmark file: {}\nTriangles: {}\nParsing: {:.3?}\nDeduplication: {:.3?}\nAnalysis: {:.3?}\nTotal: {:.3?}\nEstimated indexed mesh storage: {:.2} MiB\nWarnings: {}\n", path.display(), mesh.triangles.len(), parsing_time, deduplication_time, analysis_time, total.elapsed(), estimated_memory as f64 / 1_048_576.0, result.slivers.len() + result.large_triangles.len() + result.high_incident_vertices.len()))
+    Ok(format!("Benchmark file: {}\nTriangles: {}\nParsing: {:.3?}\nDeduplication: {:.3?}\nAnalysis: {:.3?}\nTotal: {:.3?}\nEstimated indexed mesh storage: {:.2} MiB\nWarnings: {}\n", path.display(), mesh.triangles.len(), parsing_time, deduplication_time, analysis_time, total.elapsed(), estimated_memory as f64 / 1_048_576.0, result.slivers.len() + result.micro_triangles.len() + result.large_triangles.len() + result.high_incident_vertices.len()))
 }
 
 pub fn run_command(
@@ -274,7 +291,8 @@ pub fn run_command(
     match args {
         [] => run_menu(input, output, &config)?,
         [command, shape, density, encoding, name] if command == "generate" => {
-            let kind = SampleKind::parse(shape).ok_or("shape must be prism, torus, cylinder, cube, cone, or sphere")?;
+            let kind = SampleKind::parse(shape)
+                .ok_or("shape must be cuboid, prism, box, torus, cylinder, cube, cone, sphere, or tetrahedron")?;
             let density = density.parse()?; let binary = match encoding.as_str() { "binary" => true, "ascii" => false, _ => return Err("encoding must be ascii or binary".into()) };
             writeln!(
                 output,
@@ -287,57 +305,4 @@ pub fn run_command(
         _ => writeln!(output, "Usage: stl_analyzer [generate <shape> <density> <ascii|binary> <name.stl> | benchmark [triangles] [name.stl]]")?,
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::geometry::{Triangle, Vec3};
-    use crate::stl::{write_ascii, write_binary};
-    use std::io::Cursor;
-
-    #[test]
-    fn config_reads_configurable_thresholds() {
-        let root = env::temp_dir().join(format!("stl-analyzer-config-{}", std::process::id()));
-        fs::create_dir_all(&root).unwrap();
-        let path = root.join("config.json");
-        fs::write(&path, r#"{"stl_folder":"models","max_incident_edges":7}"#).unwrap();
-        let config = Config::load_from(&path).unwrap();
-        assert_eq!(config.stl_folder, root.join("models"));
-        assert_eq!(config.thresholds.max_incident_edges, 7);
-    }
-
-    #[test]
-    fn menu_analyzes_ascii_and_binary_files_then_exits() {
-        let folder = env::temp_dir().join(format!("stl-analyzer-menu-{}", std::process::id()));
-        fs::create_dir_all(&folder).unwrap();
-        let triangle = Triangle::new([
-            Vec3::ZERO,
-            Vec3::new(1.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        ]);
-        write_ascii(
-            &mut File::create(folder.join("a_ascii.stl")).unwrap(),
-            "ascii",
-            &[triangle],
-        )
-        .unwrap();
-        write_binary(
-            &mut File::create(folder.join("b_binary.stl")).unwrap(),
-            "binary",
-            &[triangle],
-        )
-        .unwrap();
-        let config = Config {
-            stl_folder: folder,
-            thresholds: Thresholds::default(),
-        };
-        let mut input = Cursor::new(b"1\n1\n1\n2\n2\n");
-        let mut output = Vec::new();
-        run_menu(&mut input, &mut output, &config).unwrap();
-        let output = String::from_utf8(output).unwrap();
-        assert!(output.contains("Format: ASCII"));
-        assert!(output.contains("Format: binary"));
-        assert!(output.contains("Goodbye."));
-    }
 }

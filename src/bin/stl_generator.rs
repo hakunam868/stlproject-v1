@@ -40,7 +40,9 @@ fn run(args: Vec<String>) -> Result<String, String> {
     let shape = args
         .first()
         .and_then(|value| SampleKind::parse(value))
-        .ok_or("first argument must be prism, torus, cylinder, cube, cone, or sphere")?;
+        .ok_or(
+            "first argument must be cuboid, cube, cylinder, cone, sphere, torus, or tetrahedron",
+        )?;
     let config = Config::load_default().map_err(|error| error.to_string())?;
     let mut dimensions = ShapeDimensions::defaults(shape);
     let mut density = 24_usize;
@@ -115,18 +117,30 @@ fn run(args: Vec<String>) -> Result<String, String> {
 }
 
 fn run_interactive(input: &mut dyn BufRead, output: &mut dyn Write) -> Result<String, String> {
-    writeln!(output, "STL Generator\n1. Cube\n2. Cylinder\n3. Torus")
+    writeln!(
+        output,
+        "STL Generator\n1. Cube\n2. Cuboid\n3. Cylinder\n4. Cone\n5. Sphere\n6. Torus\n7. Tetrahedron"
+    )
         .map_err(|error| error.to_string())?;
     let shape = match prompt_text(input, output, "Choose a shape", None)?.as_str() {
         "1" | "cube" => SampleKind::Cube,
-        "2" | "cylinder" => SampleKind::Cylinder,
-        "3" | "torus" => SampleKind::Torus,
-        _ => return Err("choose 1, 2, or 3".into()),
+        "2" | "cuboid" | "box" => SampleKind::Prism,
+        "3" | "cylinder" => SampleKind::Cylinder,
+        "4" | "cone" => SampleKind::Cone,
+        "5" | "sphere" => SampleKind::Sphere,
+        "6" | "torus" => SampleKind::Torus,
+        "7" | "tetrahedron" | "tetra" => SampleKind::Tetrahedron,
+        _ => return Err("choose a number from 1 to 7 or enter a listed shape name".into()),
     };
     let mut dimensions = ShapeDimensions::defaults(shape);
     match shape {
         SampleKind::Cube => {
             dimensions.width = prompt_number(input, output, "Cube size", dimensions.width)?
+        }
+        SampleKind::Prism => {
+            dimensions.width = prompt_number(input, output, "Cuboid width", dimensions.width)?;
+            dimensions.height = prompt_number(input, output, "Cuboid height", dimensions.height)?;
+            dimensions.depth = prompt_number(input, output, "Cuboid depth", dimensions.depth)?;
         }
         SampleKind::Cylinder => {
             dimensions.radius = prompt_number(input, output, "Cylinder radius", dimensions.radius)?;
@@ -138,7 +152,17 @@ fn run_interactive(input: &mut dyn BufRead, output: &mut dyn Write) -> Result<St
             dimensions.minor_radius =
                 prompt_number(input, output, "Torus minor radius", dimensions.minor_radius)?;
         }
-        _ => unreachable!(),
+        SampleKind::Cone => {
+            dimensions.radius = prompt_number(input, output, "Cone radius", dimensions.radius)?;
+            dimensions.height = prompt_number(input, output, "Cone height", dimensions.height)?;
+        }
+        SampleKind::Sphere => {
+            dimensions.radius = prompt_number(input, output, "Sphere radius", dimensions.radius)?;
+        }
+        SampleKind::Tetrahedron => {
+            dimensions.width =
+                prompt_number(input, output, "Tetrahedron edge size", dimensions.width)?;
+        }
     }
     let density = prompt_usize(input, output, "Triangle density", 24)?;
     let format = prompt_text(input, output, "Format: binary or ascii", Some("binary"))?;
@@ -225,9 +249,12 @@ fn prompt_usize(
 fn shape_name(shape: SampleKind) -> &'static str {
     match shape {
         SampleKind::Cube => "cube",
+        SampleKind::Prism => "cuboid",
         SampleKind::Cylinder => "cylinder",
+        SampleKind::Cone => "cone",
+        SampleKind::Sphere => "sphere",
         SampleKind::Torus => "torus",
-        _ => "model",
+        SampleKind::Tetrahedron => "tetrahedron",
     }
 }
 
@@ -264,5 +291,5 @@ fn number(value: &str, name: &str) -> Result<f32, String> {
 }
 
 fn usage() -> &'static str {
-    "Run without arguments for the interactive Cube, Cylinder, and Torus generator. Press Enter at a dimension prompt to use its default.\n\nCommand mode: stl-generator <shape> [options]\nDefaults: density 24, binary output, configured stl_folder/<shape>.stl\nShapes and dimensions:\n  prism    --width 2 --height 1 --depth 1\n  cube     --size 1\n  cylinder --radius 1 --height 2\n  cone     --radius 1 --height 2\n  sphere   --radius 1\n  torus    --major-radius 1 --minor-radius 0.35\n\nCommon options: --density N --format ascii|binary --output PATH"
+    "Run without arguments for the interactive seven-shape generator. Press Enter at a dimension prompt to use its default.\n\nCommand mode: stl-generator <shape> [options]\nDefaults: density 24, binary output, configured stl_folder/<shape>.stl\nShapes and dimensions:\n  cuboid   --width 2 --height 1 --depth 1 (prism is an alias)\n  cube     --size 1\n  cylinder --radius 1 --height 2\n  cone     --radius 1 --height 2\n  sphere   --radius 1\n  torus    --major-radius 1 --minor-radius 0.35\n  tetrahedron --size 1 (regular tetrahedron edge length)\n\nCommon options: --density N --format ascii|binary --output PATH"
 }

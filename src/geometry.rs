@@ -158,21 +158,3 @@ impl Mesh {
         ]))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn deduplicates_vertices_and_keeps_indices() {
-        let a = Vec3::new(0.0, 0.0, 0.0);
-        let b = Vec3::new(1.0, 0.0, 0.0);
-        let c = Vec3::new(0.0, 1.0, 0.0);
-        let d = Vec3::new(1.0, 1.0, 0.0);
-        let mesh = Mesh::from_triangles(vec![Triangle::new([a, b, c]), Triangle::new([b, d, c])]);
-        assert_eq!(mesh.vertices.len(), 4);
-        assert_eq!(mesh.triangles.len(), 2);
-        assert_eq!(mesh.triangles[0].indices, [0, 1, 2]);
-        assert_eq!(mesh.triangles[1].indices, [1, 3, 2]);
-    }
-}

@@ -68,3 +68,56 @@ fn interactive_generator_uses_cube_defaults_for_blank_dimensions() {
     assert_eq!(parsed.format, StlFormat::Binary);
     assert_eq!(parsed.triangles.len(), 6912);
 }
+
+#[test]
+fn generator_cli_creates_tetrahedron_and_cuboid_stls() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("stl-generator-shapes-{stamp}"));
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("config.json"), r#"{"stl_folder":"models"}"#).unwrap();
+
+    for (shape, args, expected_triangles) in [
+        (
+            "tetrahedron",
+            vec!["tetrahedron", "--size", "2", "--density", "2"],
+            16,
+        ),
+        (
+            "cuboid",
+            vec![
+                "cuboid",
+                "--width",
+                "6",
+                "--height",
+                "4",
+                "--depth",
+                "2",
+                "--density",
+                "1",
+            ],
+            12,
+        ),
+        (
+            "sphere",
+            vec!["sphere", "--radius", "2", "--density", "4"],
+            48,
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_stl-generator"))
+            .current_dir(&root)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let parsed = parse_file(&root.join("models").join(format!("{shape}.stl"))).unwrap();
+        assert_eq!(parsed.format, StlFormat::Binary);
+        assert_eq!(parsed.triangles.len(), expected_triangles);
+    }
+}

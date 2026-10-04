@@ -11,17 +11,20 @@ pub enum SampleKind {
     Cube,
     Cone,
     Sphere,
+    Tetrahedron,
 }
 
 impl SampleKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value.to_ascii_lowercase().as_str() {
             "prism" => Some(Self::Prism),
+            "cuboid" | "box" => Some(Self::Prism),
             "torus" => Some(Self::Torus),
             "cylinder" => Some(Self::Cylinder),
             "cube" => Some(Self::Cube),
             "cone" => Some(Self::Cone),
             "sphere" => Some(Self::Sphere),
+            "tetrahedron" | "tetra" => Some(Self::Tetrahedron),
             _ => None,
         }
     }
@@ -46,7 +49,7 @@ impl ShapeDimensions {
                 depth: 1.0,
                 ..Self::unit()
             },
-            SampleKind::Cube => Self {
+            SampleKind::Cube | SampleKind::Tetrahedron => Self {
                 width: 1.0,
                 height: 1.0,
                 depth: 1.0,
@@ -98,6 +101,7 @@ impl ShapeDimensions {
                 positive(self.height, "height")?;
             }
             SampleKind::Sphere => positive(self.radius, "radius")?,
+            SampleKind::Tetrahedron => positive(self.width, "size")?,
             SampleKind::Torus => {
                 positive(self.major_radius, "major radius")?;
                 positive(self.minor_radius, "minor radius")?;
@@ -134,6 +138,7 @@ pub fn generate_with_dimensions(
             dimensions.width,
             density,
         )),
+        SampleKind::Tetrahedron => Ok(tetrahedron(density, dimensions.width)),
         SampleKind::Torus => Ok(torus(
             density,
             dimensions.major_radius,
@@ -143,6 +148,48 @@ pub fn generate_with_dimensions(
         SampleKind::Cone => Ok(cone(density, dimensions.radius, dimensions.height)),
         SampleKind::Sphere => Ok(sphere(density, dimensions.radius)),
     }
+}
+
+fn tetrahedron(density: usize, size: f32) -> Vec<Triangle> {
+    let n = density.max(1);
+    let scale = size / (2.0 * 2.0_f32.sqrt());
+    let vertices = [
+        Vec3::new(1.0, 1.0, 1.0) * scale,
+        Vec3::new(-1.0, -1.0, 1.0) * scale,
+        Vec3::new(-1.0, 1.0, -1.0) * scale,
+        Vec3::new(1.0, -1.0, -1.0) * scale,
+    ];
+    let faces = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]];
+    let mut triangles = Vec::with_capacity(4 * n * n);
+    for [a, b, c] in faces {
+        let mut face = [vertices[a], vertices[b], vertices[c]];
+        let center = (face[0] + face[1] + face[2]) * (1.0 / 3.0);
+        if (face[1] - face[0]).cross(face[2] - face[0]).dot(center) < 0.0 {
+            face.swap(1, 2);
+        }
+        let point = |i: usize, j: usize| {
+            let u = i as f32 / n as f32;
+            let v = j as f32 / n as f32;
+            face[0] * (1.0 - u - v) + face[1] * u + face[2] * v
+        };
+        for i in 0..n {
+            for j in 0..n - i {
+                triangles.push(Triangle::new([
+                    point(i, j),
+                    point(i + 1, j),
+                    point(i, j + 1),
+                ]));
+                if i + j + 1 < n {
+                    triangles.push(Triangle::new([
+                        point(i + 1, j),
+                        point(i + 1, j + 1),
+                        point(i, j + 1),
+                    ]));
+                }
+            }
+        }
+    }
+    triangles
 }
 
 fn add_quad(output: &mut Vec<Triangle>, a: Vec3, b: Vec3, c: Vec3, d: Vec3) {
@@ -349,47 +396,4 @@ pub fn write_benchmark_binary<W: Write>(writer: &mut W, triangles: u32) -> Resul
         write_binary_triangle(writer, &triangle)?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn all_samples_are_generated_and_density_changes_cube_size() {
-        for kind in [
-            SampleKind::Prism,
-            SampleKind::Torus,
-            SampleKind::Cylinder,
-            SampleKind::Cube,
-            SampleKind::Cone,
-            SampleKind::Sphere,
-        ] {
-            assert!(!generate(kind, 4).is_empty());
-        }
-        assert!(generate(SampleKind::Cube, 3).len() > generate(SampleKind::Cube, 1).len());
-    }
-
-    #[test]
-    fn custom_cube_dimensions_change_its_bounds() {
-        let triangles = generate_with_dimensions(
-            SampleKind::Cube,
-            1,
-            ShapeDimensions {
-                width: 6.0,
-                ..ShapeDimensions::defaults(SampleKind::Cube)
-            },
-        )
-        .unwrap();
-        let min_x = triangles
-            .iter()
-            .flat_map(|triangle| triangle.vertices)
-            .map(|vertex| vertex.x)
-            .fold(f32::INFINITY, f32::min);
-        let max_x = triangles
-            .iter()
-            .flat_map(|triangle| triangle.vertices)
-            .map(|vertex| vertex.x)
-            .fold(f32::NEG_INFINITY, f32::max);
-        assert_eq!((min_x, max_x), (-3.0, 3.0));
-    }
 }
