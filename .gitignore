@@ -1,26 +1,5 @@
-# Build output
-bin/
-obj/
-artifacts/
-TestResults/
-*.binlog
-
-# IDE / user files
-.vs/
-.vscode/*
-!.vscode/extensions.json
-.idea/
-*.user
-*.suo
-*.rsuser
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Generated test models (sample models in ParseSTL/StlFiles are tracked)
-StlGen/StlFiles/
-*.generated.stl
-
-# Claude Code local settings
-.claude/settings.local.json
+/.vs/
+/target/
+**/bin/
+**/obj/
+*.stl

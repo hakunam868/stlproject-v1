@@ -1,0 +1,48 @@
+[package]
+name = "stl-analyzer"
+version = "0.1.0"
+edition = "2021"
+autobins = false
+autoexamples = false
+autotests = false
+
+[dependencies]
+
+[lib]
+path = "ParseSTL/lib.rs"
+
+[[bin]]
+name = "stl-analyzer"
+path = "ParseSTL/Program.rs"
+
+[[bin]]
+name = "stl-generator"
+path = "StlGen/UI/stl_generator.rs"
+
+[[bin]]
+name = "render-guide"
+path = "StlGen/Tools/render_guide.rs"
+
+[[test]]
+name = "cli"
+path = "ParseSTL.Tests/cli.rs"
+
+[[test]]
+name = "core_behaviors"
+path = "ParseSTL.Tests/core_behaviors.rs"
+
+[[test]]
+name = "loading"
+path = "ParseSTL.Tests/loading.rs"
+
+[[test]]
+name = "mesh_analysis"
+path = "ParseSTL.Tests/mesh_analysis.rs"
+
+[[example]]
+name = "benchmark"
+path = "StlGen/Examples/benchmark.rs"
+
+[[example]]
+name = "make_sample"
+path = "StlGen/Examples/make_sample.rs"
