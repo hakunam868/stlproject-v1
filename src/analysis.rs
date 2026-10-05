@@ -1,4 +1,5 @@
-use crate::geometry::{Mesh, Vec3};
+use crate::geometry::Vec3;
+use crate::mesh::Mesh;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingBox {

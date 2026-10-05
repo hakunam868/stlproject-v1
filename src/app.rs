@@ -1,5 +1,6 @@
 use crate::analysis::{analyze, Analysis, Thresholds};
-use crate::geometry::Mesh;
+use crate::geometry::Vec3;
+use crate::mesh::{IndexedTriangle, Mesh};
 use crate::samples::{generate, write_benchmark_binary, SampleKind};
 use crate::stl::{parse_file, write_ascii, write_binary, StlError};
 use std::env;
@@ -277,8 +278,8 @@ pub fn benchmark(config: &Config, triangle_count: u32, name: &str) -> Result<Str
     let analysis_start = Instant::now();
     let result = analyze(&mesh, config.thresholds);
     let analysis_time = analysis_start.elapsed();
-    let estimated_memory = mesh.vertices.capacity() * std::mem::size_of::<crate::geometry::Vec3>()
-        + mesh.triangles.capacity() * std::mem::size_of::<crate::geometry::IndexedTriangle>();
+    let estimated_memory = mesh.vertices.capacity() * std::mem::size_of::<Vec3>()
+        + mesh.triangles.capacity() * std::mem::size_of::<IndexedTriangle>();
     Ok(format!("Benchmark file: {}\nTriangles: {}\nParsing: {:.3?}\nDeduplication: {:.3?}\nAnalysis: {:.3?}\nTotal: {:.3?}\nEstimated indexed mesh storage: {:.2} MiB\nWarnings: {}\n", path.display(), mesh.triangles.len(), parsing_time, deduplication_time, analysis_time, total.elapsed(), estimated_memory as f64 / 1_048_576.0, result.slivers.len() + result.micro_triangles.len() + result.large_triangles.len() + result.high_incident_vertices.len()))
 }
 

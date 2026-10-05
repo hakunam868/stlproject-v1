@@ -2,7 +2,7 @@ use std::env;
 use std::time::Instant;
 
 use stl_analyzer::analysis::{analyze, Thresholds};
-use stl_analyzer::geometry::Mesh;
+use stl_analyzer::mesh::Mesh;
 use stl_analyzer::stl::parse_file;
 
 fn main() {

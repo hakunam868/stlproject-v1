@@ -61,7 +61,7 @@ The benchmark streams the binary fixture to disk, then reports parsing, deduplic
 
 ## Components
 
-- `geometry.rs`: vectors, raw triangles, and exact-coordinate indexed mesh deduplication.
+- `geometry.rs`: vectors and raw triangles; `mesh.rs`: indexed mesh data structures and exact-coordinate vertex deduplication.
 - `stl.rs`: structural binary detection, strict ASCII parsing, and STL writers.
 - `analysis.rs`: bounds, sliver, micro/large relative-area, and unique incident-edge checks.
 - `samples.rs`: parameterized primitives and the streaming grid benchmark writer.
@@ -70,7 +70,7 @@ The benchmark streams the binary fixture to disk, then reports parsing, deduplic
 - `docs/STL-Analyzer-Rust-Technical-Guide.pdf`: generated PDF version of the guide.
 
 The core console analyzer is implemented without external crates. Sample generators and the benchmark are included as optional demonstration tools.
-The core analysis application is 934 Rust lines, excluding tests and the optional sample/benchmark generators.
+The core analyzer modules (`analysis.rs`, `app.rs`, `geometry.rs`, `mesh.rs`, `stl.rs`, `lib.rs`, and `main.rs`) total 869 Rust lines. This count excludes `samples.rs`, standalone utility binaries, examples, and tests.
 
 Regenerate the PDF after editing the HTML guide with:
 
