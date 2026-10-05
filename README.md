@@ -66,8 +66,7 @@ The benchmark streams the binary fixture to disk, then reports parsing, deduplic
 - `analysis.rs`: bounds, sliver, micro/large relative-area, and unique incident-edge checks.
 - `samples.rs`: parameterized primitives and the streaming grid benchmark writer.
 - `app.rs`: config loading, menu, reports, commands, and benchmark timings.
-- `docs/stl-analyzer-guide.html`: the full Rust concepts, algorithms, performance, and code-change guide.
-- `docs/STL-Analyzer-Rust-Technical-Guide.pdf`: generated PDF version of the guide.
+
 
 The core console analyzer is implemented without external crates. Sample generators and the benchmark are included as optional demonstration tools.
 The core analyzer modules (`analysis.rs`, `app.rs`, `geometry.rs`, `mesh.rs`, `stl.rs`, `lib.rs`, and `main.rs`) total 869 Rust lines. This count excludes `samples.rs`, standalone utility binaries, examples, and tests.
