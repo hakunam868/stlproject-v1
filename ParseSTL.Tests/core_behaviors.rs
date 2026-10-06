@@ -55,13 +55,30 @@ fn config_reads_custom_thresholds() {
     let path = root.join("config.json");
     fs::write(
         &path,
-        r#"{"stl_folder":"models","max_incident_edges":7,"micro_triangle_area_ratio":0.000001}"#,
+        r#"{"metadata":{"stl_folder":"wrong"},"stl_folder":"models\"quoted","max_incident_edges":7,"micro_triangle_area_ratio":0.000001}"#,
     )
     .unwrap();
     let config = Config::load_from(&path).unwrap();
-    assert_eq!(config.stl_folder, root.join("models"));
+    assert_eq!(config.stl_folder, root.join("models\"quoted"));
     assert_eq!(config.thresholds.max_incident_edges, 7);
     assert_eq!(config.thresholds.micro_triangle_area_ratio, 0.000001);
+}
+
+#[test]
+fn config_rejects_fractional_incident_edge_threshold() {
+    let root = std::env::temp_dir().join(format!(
+        "stl-analyzer-invalid-config-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("config.json");
+    fs::write(
+        &path,
+        r#"{"stl_folder":"models","max_incident_edges":12.9}"#,
+    )
+    .unwrap();
+    let error = Config::load_from(&path).err().unwrap();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
 }
 
 #[test]
@@ -105,14 +122,16 @@ fn generates_each_sample_and_cube_dimensions() {
         SampleKind::Sphere,
         SampleKind::Tetrahedron,
     ] {
-        assert!(!generate(kind, 4).is_empty());
+        assert!(!generate(kind, 4).unwrap().is_empty());
     }
     assert_eq!(SampleKind::parse("cuboid"), Some(SampleKind::Prism));
     assert_eq!(
         SampleKind::parse("tetrahedron"),
         Some(SampleKind::Tetrahedron)
     );
-    assert!(generate(SampleKind::Cube, 3).len() > generate(SampleKind::Cube, 1).len());
+    assert!(
+        generate(SampleKind::Cube, 3).unwrap().len() > generate(SampleKind::Cube, 1).unwrap().len()
+    );
 
     let triangles = generate_with_dimensions(
         SampleKind::Cube,
@@ -134,6 +153,13 @@ fn generates_each_sample_and_cube_dimensions() {
         .map(|vertex| vertex.x)
         .fold(f32::NEG_INFINITY, f32::max);
     assert_eq!((min_x, max_x), (-3.0, 3.0));
+}
+
+#[test]
+fn generator_rejects_unbounded_and_overflowing_density() {
+    assert!(generate(SampleKind::Cube, 100_000).is_err());
+    assert!(generate(SampleKind::Cube, usize::MAX).is_err());
+    assert_eq!(generate(SampleKind::Cube, 0).unwrap().len(), 12);
 }
 
 #[test]

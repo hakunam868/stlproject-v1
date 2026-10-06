@@ -17,7 +17,13 @@ fn main() -> ExitCode {
         None => 24,
     };
 
-    let triangles = generate(SampleKind::Torus, density as usize);
+    let triangles = match generate(SampleKind::Torus, density as usize) {
+        Ok(triangles) => triangles,
+        Err(error) => {
+            eprintln!("Could not generate sample: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     match std::fs::File::create(&path)
         .map_err(stl_analyzer::stl::StlError::from)
         .and_then(|mut file| write_binary(&mut file, "torus", &triangles))
