@@ -25,9 +25,15 @@ impl BoundingBox {
         Some(bounds)
     }
 
-    pub fn diagonal_squared(self) -> f32 {
-        let delta = self.max - self.min;
-        delta.dot(delta)
+    pub fn diagonal_squared(self) -> f64 {
+        let dx = f64::from(self.max.x) - f64::from(self.min.x);
+        let dy = f64::from(self.max.y) - f64::from(self.min.y);
+        let dz = f64::from(self.max.z) - f64::from(self.min.z);
+        dx * dx + dy * dy + dz * dz
+    }
+
+    pub fn diagonal(self) -> f64 {
+        self.diagonal_squared().sqrt()
     }
 }
 
@@ -53,20 +59,20 @@ impl Default for Thresholds {
 #[derive(Debug)]
 pub struct SliverTriangle {
     pub triangle: usize,
-    pub area: f32,
-    pub aspect_ratio: f32,
+    pub area: f64,
+    pub aspect_ratio: f64,
 }
 #[derive(Debug)]
 pub struct LargeTriangle {
     pub triangle: usize,
-    pub area: f32,
-    pub relative_area: f32,
+    pub area: f64,
+    pub relative_area: f64,
 }
 #[derive(Debug)]
 pub struct MicroTriangle {
     pub triangle: usize,
-    pub area: f32,
-    pub relative_area: f32,
+    pub area: f64,
+    pub relative_area: f64,
 }
 #[derive(Debug)]
 pub struct HighIncidentVertex {
@@ -86,7 +92,7 @@ pub struct Analysis {
 
 pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
     let bounds = BoundingBox::from_vertices(&mesh.vertices);
-    let model_area = bounds.map_or(0.0, BoundingBox::diagonal_squared);
+    let model_scale_squared = bounds.map_or(0.0, BoundingBox::diagonal_squared);
     let mut slivers = Vec::new();
     let mut micro_triangles = Vec::new();
     let mut large_triangles = Vec::new();
@@ -94,21 +100,23 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
 
     for (index, indexed) in mesh.triangles.iter().enumerate() {
         let [a, b, c] = indexed.indices;
-        let vertices = [mesh.vertices[a], mesh.vertices[b], mesh.vertices[c]];
-        let area = 0.5
-            * (vertices[1] - vertices[0])
-                .cross(vertices[2] - vertices[0])
-                .length();
-        let longest = vertices[0]
-            .distance(vertices[1])
-            .max(vertices[1].distance(vertices[2]))
-            .max(vertices[2].distance(vertices[0]));
+        let vertices = [
+            to_f64(mesh.vertices[a]),
+            to_f64(mesh.vertices[b]),
+            to_f64(mesh.vertices[c]),
+        ];
+        let edge_ab = subtract(vertices[1], vertices[0]);
+        let edge_ac = subtract(vertices[2], vertices[0]);
+        let area = 0.5 * length(cross(edge_ab, edge_ac));
+        let longest_squared = distance_squared(vertices[0], vertices[1])
+            .max(distance_squared(vertices[1], vertices[2]))
+            .max(distance_squared(vertices[2], vertices[0]));
         let aspect_ratio = if area > 0.0 {
-            longest * longest / (2.0 * area)
+            longest_squared / (2.0 * area)
         } else {
-            f32::INFINITY
+            f64::INFINITY
         };
-        if aspect_ratio >= thresholds.sliver_aspect_ratio {
+        if aspect_ratio >= f64::from(thresholds.sliver_aspect_ratio) {
             slivers.push(SliverTriangle {
                 triangle: index,
                 area,
@@ -116,23 +124,26 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
             });
         }
         if area == 0.0
-            || (model_area > 0.0 && area / model_area <= thresholds.micro_triangle_area_ratio)
+            || (model_scale_squared > 0.0
+                && area / model_scale_squared <= f64::from(thresholds.micro_triangle_area_ratio))
         {
             micro_triangles.push(MicroTriangle {
                 triangle: index,
                 area,
-                relative_area: if model_area > 0.0 {
-                    area / model_area
+                relative_area: if model_scale_squared > 0.0 {
+                    area / model_scale_squared
                 } else {
                     0.0
                 },
             });
         }
-        if model_area > 0.0 && area / model_area >= thresholds.large_triangle_area_ratio {
+        if model_scale_squared > 0.0
+            && area / model_scale_squared >= f64::from(thresholds.large_triangle_area_ratio)
+        {
             large_triangles.push(LargeTriangle {
                 triangle: index,
                 area,
-                relative_area: area / model_area,
+                relative_area: area / model_scale_squared,
             });
         }
         for (start, end) in [(a, b), (b, c), (c, a)] {
@@ -168,4 +179,33 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         large_triangles,
         high_incident_vertices,
     }
+}
+
+fn to_f64(vertex: Vec3) -> [f64; 3] {
+    [
+        f64::from(vertex.x),
+        f64::from(vertex.y),
+        f64::from(vertex.z),
+    ]
+}
+
+fn subtract(left: [f64; 3], right: [f64; 3]) -> [f64; 3] {
+    [left[0] - right[0], left[1] - right[1], left[2] - right[2]]
+}
+
+fn cross(left: [f64; 3], right: [f64; 3]) -> [f64; 3] {
+    [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ]
+}
+
+fn length(vector: [f64; 3]) -> f64 {
+    (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt()
+}
+
+fn distance_squared(left: [f64; 3], right: [f64; 3]) -> f64 {
+    let delta = subtract(left, right);
+    delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]
 }

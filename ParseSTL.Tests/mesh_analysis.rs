@@ -52,6 +52,28 @@ fn finds_sliver_and_large_triangles() {
 }
 
 #[test]
+fn computes_thin_triangle_metrics_with_f64_precision() {
+    let height = 1.0e-3_f32;
+    let mesh = mesh(vec![[
+        Vec3::ZERO,
+        Vec3::new(1.0e4, 0.0, 0.0),
+        Vec3::new(1.0e4, height, 0.0),
+    ]]);
+    let report = analyze(&mesh, Thresholds::default());
+    let sliver = &report.slivers[0];
+
+    let height = f64::from(height);
+    let expected_area = 0.5 * 1.0e4 * height;
+    let expected_aspect = (1.0e8 + height * height) / (2.0 * expected_area);
+    assert!((sliver.area - expected_area).abs() / expected_area < 1.0e-9);
+    assert!((sliver.aspect_ratio - expected_aspect).abs() / expected_aspect < 1.0e-9);
+
+    let bounds = BoundingBox::from_vertices(&mesh.vertices).unwrap();
+    let expected_diagonal = (1.0e8 + height * height).sqrt();
+    assert!((bounds.diagonal() - expected_diagonal).abs() / expected_diagonal < 1.0e-12);
+}
+
+#[test]
 fn reports_exact_unique_vertices_and_incident_edges() {
     let a = Vec3::new(0.0, 0.0, 0.0);
     let b = Vec3::new(1.0, 0.0, 0.0);
