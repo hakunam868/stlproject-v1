@@ -145,36 +145,46 @@ fn parse_ascii(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
     }
     let mut triangles = Vec::new();
     loop {
-        let Some(line) = lines.next() else {
-            return Err(StlError::Invalid("ASCII STL is missing 'endsolid'".into()));
-        };
-        if line.starts_with("endsolid") {
-            break;
-        }
-        let parts: Vec<_> = line.split_whitespace().collect();
-        if parts.len() != 5 || parts[0] != "facet" || parts[1] != "normal" {
-            return Err(StlError::Invalid(format!(
-                "expected 'facet normal' near triangle {}",
-                triangles.len()
-            )));
-        }
-        let normal = parse_vec3(&parts[2..], triangles.len())?;
-        expect_line(&mut lines, "outer loop", triangles.len())?;
-        let mut vertices = [Vec3::ZERO; 3];
-        for vertex in &mut vertices {
-            let line = lines
-                .next()
-                .ok_or_else(|| StlError::Invalid("unexpected end while reading vertices".into()))?;
-            let parts: Vec<_> = line.split_whitespace().collect();
-            if parts.len() != 4 || parts[0] != "vertex" {
-                return Err(StlError::Invalid("expected 'vertex x y z'".into()));
+        loop {
+            let Some(line) = lines.next() else {
+                return Err(StlError::Invalid("ASCII STL is missing 'endsolid'".into()));
+            };
+            if line.starts_with("endsolid") {
+                break;
             }
-            *vertex = parse_vec3(&parts[1..], triangles.len())?;
+            let parts: Vec<_> = line.split_whitespace().collect();
+            if parts.len() != 5 || parts[0] != "facet" || parts[1] != "normal" {
+                return Err(StlError::Invalid(format!(
+                    "expected 'facet normal' near triangle {}",
+                    triangles.len()
+                )));
+            }
+            let normal = parse_vec3(&parts[2..], triangles.len())?;
+            expect_line(&mut lines, "outer loop", triangles.len())?;
+            let mut vertices = [Vec3::ZERO; 3];
+            for vertex in &mut vertices {
+                let line = lines.next().ok_or_else(|| {
+                    StlError::Invalid("unexpected end while reading vertices".into())
+                })?;
+                let parts: Vec<_> = line.split_whitespace().collect();
+                if parts.len() != 4 || parts[0] != "vertex" {
+                    return Err(StlError::Invalid("expected 'vertex x y z'".into()));
+                }
+                *vertex = parse_vec3(&parts[1..], triangles.len())?;
+            }
+            expect_line(&mut lines, "endloop", triangles.len())?;
+            expect_line(&mut lines, "endfacet", triangles.len())?;
+            validate_triangle(vertices, triangles.len())?;
+            triangles.push(Triangle { normal, vertices });
         }
-        expect_line(&mut lines, "endloop", triangles.len())?;
-        expect_line(&mut lines, "endfacet", triangles.len())?;
-        validate_triangle(vertices, triangles.len())?;
-        triangles.push(Triangle { normal, vertices });
+        let Some(next) = lines.next() else {
+            break;
+        };
+        if !next.starts_with("solid") {
+            return Err(StlError::Invalid(
+                "expected another 'solid' after 'endsolid'".into(),
+            ));
+        }
     }
     Ok(triangles)
 }

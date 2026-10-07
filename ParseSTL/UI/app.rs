@@ -114,6 +114,8 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         && analysis.micro_triangles.is_empty()
         && analysis.large_triangles.is_empty()
         && analysis.high_incident_vertices.is_empty()
+        && analysis.open_edges.is_empty()
+        && analysis.non_manifold_edges.is_empty()
     {
         output.push_str("Quality warnings: none\n");
         return output;
@@ -141,6 +143,18 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         output.push_str(&format!(
             "- Vertex #{} at ({:.6}, {:.6}, {:.6}) has {} incident edges\n",
             item.vertex, item.position.x, item.position.y, item.position.z, item.incident_edges
+        ));
+    }
+    for edge in &analysis.open_edges {
+        output.push_str(&format!(
+            "- Open edge ({}, {}): incident to {} face\n",
+            edge.vertices[0], edge.vertices[1], edge.incident_faces
+        ));
+    }
+    for edge in &analysis.non_manifold_edges {
+        output.push_str(&format!(
+            "- Non-manifold edge ({}, {}): incident to {} faces\n",
+            edge.vertices[0], edge.vertices[1], edge.incident_faces
         ));
     }
     output
@@ -184,7 +198,7 @@ pub fn benchmark(config: &Config, triangle_count: u32, name: &str) -> Result<Str
     let analysis_time = analysis_start.elapsed();
     let estimated_memory = mesh.vertices.capacity() * std::mem::size_of::<Vec3>()
         + mesh.triangles.capacity() * std::mem::size_of::<IndexedTriangle>();
-    Ok(format!("Benchmark file: {}\nTriangles: {}\nParsing: {:.3?}\nDeduplication: {:.3?}\nAnalysis: {:.3?}\nTotal: {:.3?}\nEstimated indexed mesh storage: {:.2} MiB\nWarnings: {}\n", path.display(), mesh.triangles.len(), parsing_time, deduplication_time, analysis_time, total.elapsed(), estimated_memory as f64 / 1_048_576.0, result.slivers.len() + result.micro_triangles.len() + result.large_triangles.len() + result.high_incident_vertices.len()))
+    Ok(format!("Benchmark file: {}\nTriangles: {}\nParsing: {:.3?}\nDeduplication: {:.3?}\nAnalysis: {:.3?}\nTotal: {:.3?}\nEstimated indexed mesh storage: {:.2} MiB\nWarnings: {}\n", path.display(), mesh.triangles.len(), parsing_time, deduplication_time, analysis_time, total.elapsed(), estimated_memory as f64 / 1_048_576.0, result.slivers.len() + result.micro_triangles.len() + result.large_triangles.len() + result.high_incident_vertices.len() + result.open_edges.len() + result.non_manifold_edges.len()))
 }
 
 pub fn run_command(

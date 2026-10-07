@@ -19,6 +19,18 @@ fn loads_ascii_stl() {
 }
 
 #[test]
+fn parses_every_solid_in_an_ascii_stl() {
+    let mut bytes = Vec::new();
+    write_ascii(&mut bytes, "first", &[triangle()]).unwrap();
+    write_ascii(&mut bytes, "second", &[triangle()]).unwrap();
+
+    let parsed = parse_bytes(&bytes).unwrap();
+
+    assert_eq!(parsed.format, StlFormat::Ascii);
+    assert_eq!(parsed.triangles.len(), 2);
+}
+
+#[test]
 fn loads_binary_stl() {
     let mut bytes = Vec::new();
     write_binary(&mut bytes, "solid-looking binary", &[triangle()]).unwrap();

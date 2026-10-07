@@ -75,6 +75,12 @@ pub struct HighIncidentVertex {
     pub incident_edges: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TopologyEdge {
+    pub vertices: [usize; 2],
+    pub incident_faces: usize,
+}
+
 #[derive(Debug)]
 pub struct Analysis {
     pub bounds: Option<BoundingBox>,
@@ -82,6 +88,8 @@ pub struct Analysis {
     pub micro_triangles: Vec<MicroTriangle>,
     pub large_triangles: Vec<LargeTriangle>,
     pub high_incident_vertices: Vec<HighIncidentVertex>,
+    pub open_edges: Vec<TopologyEdge>,
+    pub non_manifold_edges: Vec<TopologyEdge>,
 }
 
 pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
@@ -135,20 +143,46 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
                 relative_area: area / model_area,
             });
         }
+        let mut triangle_edges = [(usize::MAX, usize::MAX); 3];
+        let mut triangle_edge_count = 0;
         for (start, end) in [(a, b), (b, c), (c, a)] {
             if start != end {
-                edges.push((start.min(end), start.max(end)));
+                let edge = (start.min(end), start.max(end));
+                if !triangle_edges[..triangle_edge_count].contains(&edge) {
+                    edges.push(edge);
+                    triangle_edges[triangle_edge_count] = edge;
+                    triangle_edge_count += 1;
+                }
             }
         }
     }
 
-    // Sorting compact edge pairs avoids a hash set per vertex while counting unique neighbors.
     edges.sort_unstable();
-    edges.dedup();
     let mut degrees = vec![0_usize; mesh.vertices.len()];
-    for (a, b) in edges {
+    let mut open_edges = Vec::new();
+    let mut non_manifold_edges = Vec::new();
+    let mut edge_index = 0;
+    while edge_index < edges.len() {
+        let (a, b) = edges[edge_index];
+        let mut end = edge_index + 1;
+        while end < edges.len() && edges[end] == (a, b) {
+            end += 1;
+        }
+        let incident_faces = end - edge_index;
         degrees[a] += 1;
         degrees[b] += 1;
+        if incident_faces == 1 {
+            open_edges.push(TopologyEdge {
+                vertices: [a, b],
+                incident_faces,
+            });
+        } else if incident_faces > 2 {
+            non_manifold_edges.push(TopologyEdge {
+                vertices: [a, b],
+                incident_faces,
+            });
+        }
+        edge_index = end;
     }
     let high_incident_vertices = degrees
         .into_iter()
@@ -167,5 +201,7 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         micro_triangles,
         large_triangles,
         high_incident_vertices,
+        open_edges,
+        non_manifold_edges,
     }
 }
