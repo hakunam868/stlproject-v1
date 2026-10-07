@@ -1,6 +1,8 @@
 use crate::generator_geometry::{Triangle, Vec3};
 use std::f32::consts::PI;
 
+pub const MAX_GENERATED_TRIANGLES: usize = 10_000_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SampleKind {
     Prism,
@@ -112,9 +114,34 @@ impl ShapeDimensions {
     }
 }
 
-pub fn generate(kind: SampleKind, density: usize) -> Vec<Triangle> {
+pub fn generate(kind: SampleKind, density: usize) -> Result<Vec<Triangle>, String> {
     generate_with_dimensions(kind, density, ShapeDimensions::defaults(kind))
-        .expect("built-in defaults are valid")
+}
+
+pub fn estimated_triangle_count(kind: SampleKind, density: usize) -> Option<usize> {
+    match kind {
+        SampleKind::Prism | SampleKind::Cube => {
+            let n = density.max(1);
+            n.checked_mul(n)?.checked_mul(12)
+        }
+        SampleKind::Tetrahedron => {
+            let n = density.max(1);
+            n.checked_mul(n)?.checked_mul(4)
+        }
+        SampleKind::Torus => density
+            .max(3)
+            .checked_mul((density / 2).max(3))?
+            .checked_mul(2),
+        SampleKind::Cylinder => density.max(3).checked_mul(4),
+        SampleKind::Cone => density.max(3).checked_mul(2),
+        SampleKind::Sphere => {
+            let latitudes = density.max(2);
+            let longitudes = density.checked_mul(2)?.max(3);
+            longitudes
+                .checked_mul(latitudes.checked_sub(1)?)?
+                .checked_mul(2)
+        }
+    }
 }
 
 pub fn generate_with_dimensions(
@@ -123,6 +150,13 @@ pub fn generate_with_dimensions(
     dimensions: ShapeDimensions,
 ) -> Result<Vec<Triangle>, String> {
     dimensions.validate(kind)?;
+    let estimated = estimated_triangle_count(kind, density)
+        .ok_or_else(|| "requested density overflows the triangle count".to_owned())?;
+    if estimated > MAX_GENERATED_TRIANGLES {
+        return Err(format!(
+            "requested density would generate {estimated} triangles; maximum is {MAX_GENERATED_TRIANGLES}"
+        ));
+    }
     match kind {
         SampleKind::Prism => Ok(cuboid(
             dimensions.width,

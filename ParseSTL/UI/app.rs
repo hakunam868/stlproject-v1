@@ -169,7 +169,7 @@ pub fn generate_sample(
 ) -> Result<PathBuf, StlError> {
     fs::create_dir_all(&config.stl_folder)?;
     let path = config.stl_folder.join(name);
-    let triangles = generate(kind, density);
+    let triangles = generate(kind, density).map_err(StlError::Invalid)?;
     let mut file = File::create(&path)?;
     if binary {
         write_binary(&mut file, name, &triangles)?;
