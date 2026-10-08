@@ -1,17 +1,7 @@
 {
-  // Where generated files are written. A relative path is resolved against the folder containing StlGen.exe.
-  // To open the files straight away in ParseSTL, point this at the same folder as ParseSTL's "StlFolder".
-  "OutputFolder": "StlFiles",
-
-  // Formats used when none is given: "Binary", "Ascii" or both.
-  "DefaultFormats": [ "Binary" ],
-
-  // Safety limit: generation stops with an error past this many triangles (about 50 bytes per triangle in binary).
-  "MaxTriangles": 20000000,
-
-  // "Generate test suite" builds every shape with default parameters at each density multiplier.
-  "Suite": {
-    "Densities": [ 1, 4, 16 ],
-    "Formats": [ "Binary" ]
-  }
+  "stl_folder": "StlFiles",
+  "sliver_aspect_ratio": 20.0,
+  "micro_triangle_area_ratio": 1e-8,
+  "large_triangle_area_ratio": 0.25,
+  "max_incident_edges": 12
 }

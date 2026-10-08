@@ -1,30 +1,7 @@
 {
-  // Folder that holds the .stl files. A relative path is resolved against the folder containing the exe.
-  "StlFolder": "StlFiles",
-
-  "Welding": {
-    // 0 = merge only bit-identical vertices (exact).
-    // > 0 = merge vertices that snap to the same grid cell of this size (model units).
-    "Tolerance": 0.0
-  },
-
-  "Quality": {
-    // A triangle is a SLIVER if its smallest interior angle is below this value...
-    "SliverMinAngleDegrees": 5.0,
-    // ...OR its aspect ratio (longest edge / shortest altitude) exceeds this value. Equilateral = 1.155.
-    "SliverMaxAspectRatio": 20.0,
-
-    // A triangle is VERY LARGE if its longest edge exceeds this fraction of the bounding-box diagonal.
-    "LargeTriangleEdgeToDiagonalRatio": 0.25,
-
-    // Raise a model-level warning when the share of slivers / very large triangles exceeds these percentages.
-    "ModelSliverPercentThreshold": 5.0,
-    "ModelLargeTrianglePercentThreshold": 1.0,
-
-    // Vertices with more unique incident edges than this are reported (often the hub of a sliver fan).
-    "MaxVertexValence": 10,
-
-    // Maximum number of rows printed per warning list (the counts always include everything).
-    "MaxListedWarnings": 15
-  }
+  "stl_folder": "StlFiles",
+  "sliver_aspect_ratio": 20.0,
+  "micro_triangle_area_ratio": 1e-8,
+  "large_triangle_area_ratio": 0.25,
+  "max_incident_edges": 12
 }
