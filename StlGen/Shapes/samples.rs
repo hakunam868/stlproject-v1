@@ -395,8 +395,8 @@ fn sphere(density: usize, radius: f32) -> Vec<Triangle> {
         let next = (longitude + 1) % longitudes;
         triangles.push(Triangle::new([
             bottom,
-            ring(latitudes, longitude),
-            ring(latitudes, next),
+            ring(latitudes - 1, longitude),
+            ring(latitudes - 1, next),
         ]));
     }
     triangles

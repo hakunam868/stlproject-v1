@@ -96,6 +96,7 @@ pub struct Analysis {
     pub high_incident_vertices: Vec<HighIncidentVertex>,
     pub open_edges: Vec<TopologyEdge>,
     pub non_manifold_edges: Vec<TopologyEdge>,
+    pub is_watertight: bool,
 }
 
 pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
@@ -206,6 +207,10 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
             })
         })
         .collect();
+    let is_watertight = !mesh.triangles.is_empty()
+        && open_edges.is_empty()
+        && non_manifold_edges.is_empty()
+        && !micro_triangles.iter().any(|triangle| triangle.area == 0.0);
     Analysis {
         bounds,
         slivers,
@@ -214,6 +219,7 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         high_incident_vertices,
         open_edges,
         non_manifold_edges,
+        is_watertight,
     }
 }
 

@@ -110,6 +110,15 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         )),
         None => output.push_str("Bounding box: unavailable for an empty mesh\n"),
     }
+    if analysis.is_watertight {
+        output.push_str("Topology: watertight (PASS)\n");
+    } else {
+        output.push_str(&format!(
+            "Topology: not watertight (FAIL; {} open edges, {} non-manifold edges)\n",
+            analysis.open_edges.len(),
+            analysis.non_manifold_edges.len()
+        ));
+    }
     if analysis.slivers.is_empty()
         && analysis.micro_triangles.is_empty()
         && analysis.large_triangles.is_empty()

@@ -95,10 +95,15 @@ fn reports_exact_unique_vertices_and_incident_edges() {
 }
 
 #[test]
-fn welds_generated_cube_and_prism_seams_and_finds_no_topology_defects() {
-    for kind in [SampleKind::Cube, SampleKind::Prism] {
+fn generated_cube_prism_tetrahedron_and_sphere_are_watertight() {
+    for kind in [
+        SampleKind::Cube,
+        SampleKind::Prism,
+        SampleKind::Tetrahedron,
+        SampleKind::Sphere,
+    ] {
         let mut ascii = Vec::new();
-        write_ascii(&mut ascii, "generated", &generate(kind, 8)).unwrap();
+        write_ascii(&mut ascii, "generated", &generate(kind, 8).unwrap()).unwrap();
         let parsed = parse_bytes(&ascii).unwrap();
         let mesh = Mesh::from_triangles(parsed.triangles);
         let report = analyze(&mesh, Thresholds::default());
@@ -111,6 +116,12 @@ fn welds_generated_cube_and_prism_seams_and_finds_no_topology_defects() {
             report.non_manifold_edges.is_empty(),
             "{kind:?} had {} non-manifold edges",
             report.non_manifold_edges.len()
+        );
+        assert!(report.is_watertight, "{kind:?} was not marked watertight");
+        assert!(
+            report.micro_triangles.is_empty(),
+            "{kind:?} had {} micro triangles",
+            report.micro_triangles.len()
         );
     }
 }
@@ -130,6 +141,7 @@ fn detects_open_and_non_manifold_edges() {
     assert_eq!(report.open_edges.len(), 6);
     assert_eq!(report.non_manifold_edges.len(), 1);
     assert_eq!(report.non_manifold_edges[0].incident_faces, 3);
+    assert!(!report.is_watertight);
 }
 
 #[test]
@@ -170,8 +182,15 @@ fn report_includes_open_and_non_manifold_edge_findings() {
     let report = analyze_path(&path, Thresholds::default()).unwrap();
 
     fs::remove_file(path).unwrap();
+    assert!(report.contains("Topology: not watertight (FAIL; 6 open edges, 1 non-manifold edges)"));
     assert!(report.contains("Open edge"));
     assert!(report.contains("Non-manifold edge"));
+}
+
+#[test]
+fn empty_mesh_is_not_reported_as_watertight() {
+    let report = analyze(&Mesh::from_triangles(Vec::new()), Thresholds::default());
+    assert!(!report.is_watertight);
 }
 
 #[test]
