@@ -55,13 +55,29 @@ fn config_reads_custom_thresholds() {
     let path = root.join("config.json");
     fs::write(
         &path,
-        r#"{"metadata":{"stl_folder":"wrong"},"stl_folder":"models\"quoted","max_incident_edges":7,"micro_triangle_area_ratio":0.000001}"#,
+        r#"{"metadata":{"stl_folder":"wrong"},"stl_folder":"models\"quoted","max_incident_edges":7,"sliver_min_angle_degrees":4.5,"micro_triangle_area_ratio":0.000001}"#,
     )
     .unwrap();
     let config = Config::load_from(&path).unwrap();
     assert_eq!(config.stl_folder, root.join("models\"quoted"));
     assert_eq!(config.thresholds.max_incident_edges, 7);
+    assert_eq!(config.thresholds.sliver_min_angle_degrees, 4.5);
     assert_eq!(config.thresholds.micro_triangle_area_ratio, 0.000001);
+}
+
+#[test]
+fn config_uses_default_sliver_minimum_angle_when_omitted() {
+    let root = std::env::temp_dir().join(format!(
+        "stl-analyzer-default-angle-config-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("config.json");
+    fs::write(&path, r#"{"stl_folder":"models"}"#).unwrap();
+
+    let config = Config::load_from(&path).unwrap();
+
+    assert_eq!(config.thresholds.sliver_min_angle_degrees, 5.0);
 }
 
 #[test]

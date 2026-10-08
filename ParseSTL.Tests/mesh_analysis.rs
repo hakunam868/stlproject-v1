@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::time::{SystemTime, UNIX_EPOCH};
 use stl_analyzer::analysis::{analyze, BoundingBox, Thresholds};
 use stl_analyzer::app::analyze_path;
-use stl_analyzer::geometry::{Mesh, Triangle, Vec3};
+use stl_analyzer::geometry::{IndexedTriangle, Mesh, Triangle, Vec3};
 use stl_analyzer::samples::{generate, SampleKind};
 use stl_analyzer::stl::{parse_bytes, write_ascii};
 
@@ -55,11 +55,14 @@ fn finds_sliver_and_large_triangles() {
 #[test]
 fn computes_thin_triangle_metrics_with_f64_precision() {
     let height = 1.0e-3_f32;
-    let mesh = mesh(vec![[
-        Vec3::ZERO,
-        Vec3::new(1.0e4, 0.0, 0.0),
-        Vec3::new(1.0e4, height, 0.0),
-    ]]);
+    let mesh = Mesh {
+        vertices: vec![
+            Vec3::ZERO,
+            Vec3::new(1.0e4, 0.0, 0.0),
+            Vec3::new(1.0e4, height, 0.0),
+        ],
+        triangles: vec![IndexedTriangle { indices: [0, 1, 2] }],
+    };
     let report = analyze(&mesh, Thresholds::default());
     let sliver = &report.slivers[0];
 
@@ -72,6 +75,34 @@ fn computes_thin_triangle_metrics_with_f64_precision() {
     let bounds = BoundingBox::from_vertices(&mesh.vertices).unwrap();
     let expected_diagonal = (1.0e8 + height * height).sqrt();
     assert!((bounds.diagonal() - expected_diagonal).abs() / expected_diagonal < 1.0e-12);
+}
+
+#[test]
+fn flags_acute_triangle_by_minimum_angle_even_when_aspect_is_below_threshold() {
+    let mesh = mesh(vec![[
+        Vec3::ZERO,
+        Vec3::new(10.0, 0.0, 0.0),
+        Vec3::new(1.0, 0.05, 0.0),
+    ]]);
+    let report = analyze(
+        &mesh,
+        Thresholds {
+            sliver_aspect_ratio: 300.0,
+            ..Thresholds::default()
+        },
+    );
+
+    assert_eq!(report.slivers.len(), 1);
+    assert!(report.slivers[0].aspect_ratio < 300.0);
+}
+
+#[test]
+fn degenerate_triangle_is_micro_but_not_a_sliver() {
+    let mesh = mesh(vec![[Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::ZERO]]);
+    let report = analyze(&mesh, Thresholds::default());
+
+    assert!(report.slivers.is_empty());
+    assert_eq!(report.micro_triangles.len(), 1);
 }
 
 #[test]
@@ -98,7 +129,7 @@ fn reports_exact_unique_vertices_and_incident_edges() {
 fn welds_generated_cube_and_prism_seams_and_finds_no_topology_defects() {
     for kind in [SampleKind::Cube, SampleKind::Prism] {
         let mut ascii = Vec::new();
-        write_ascii(&mut ascii, "generated", &generate(kind, 8)).unwrap();
+        write_ascii(&mut ascii, "generated", &generate(kind, 8).unwrap()).unwrap();
         let parsed = parse_bytes(&ascii).unwrap();
         let mesh = Mesh::from_triangles(parsed.triangles);
         let report = analyze(&mesh, Thresholds::default());

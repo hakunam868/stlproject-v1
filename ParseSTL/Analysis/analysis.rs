@@ -40,6 +40,7 @@ impl BoundingBox {
 #[derive(Debug, Clone, Copy)]
 pub struct Thresholds {
     pub sliver_aspect_ratio: f32,
+    pub sliver_min_angle_degrees: f32,
     pub micro_triangle_area_ratio: f32,
     pub large_triangle_area_ratio: f32,
     pub max_incident_edges: usize,
@@ -49,6 +50,7 @@ impl Default for Thresholds {
     fn default() -> Self {
         Self {
             sliver_aspect_ratio: 20.0,
+            sliver_min_angle_degrees: 5.0,
             micro_triangle_area_ratio: 1.0e-8,
             large_triangle_area_ratio: 0.25,
             max_incident_edges: 12,
@@ -124,7 +126,11 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         } else {
             f64::INFINITY
         };
-        if aspect_ratio >= f64::from(thresholds.sliver_aspect_ratio) {
+        let minimum_angle_degrees = minimum_angle_degrees(vertices);
+        let is_sliver = area > 0.0
+            && (minimum_angle_degrees < f64::from(thresholds.sliver_min_angle_degrees)
+                || aspect_ratio > f64::from(thresholds.sliver_aspect_ratio));
+        if is_sliver {
             slivers.push(SliverTriangle {
                 triangle: index,
                 area,
@@ -244,4 +250,17 @@ fn length(vector: [f64; 3]) -> f64 {
 fn distance_squared(left: [f64; 3], right: [f64; 3]) -> f64 {
     let delta = subtract(left, right);
     delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]
+}
+
+fn minimum_angle_degrees(vertices: [[f64; 3]; 3]) -> f64 {
+    let [a, b, c] = vertices;
+    angle_degrees(subtract(b, a), subtract(c, a))
+        .min(angle_degrees(subtract(a, b), subtract(c, b)))
+        .min(angle_degrees(subtract(a, c), subtract(b, c)))
+}
+
+fn angle_degrees(left: [f64; 3], right: [f64; 3]) -> f64 {
+    let cross_magnitude = length(cross(left, right));
+    let dot_product = left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+    cross_magnitude.atan2(dot_product).to_degrees()
 }
