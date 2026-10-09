@@ -42,7 +42,7 @@ pub struct Thresholds {
     pub sliver_aspect_ratio: f32,
     pub sliver_min_angle_degrees: f32,
     pub micro_triangle_area_ratio: f32,
-    pub large_triangle_area_ratio: f32,
+    pub large_triangle_edge_to_diagonal_ratio: f32,
     pub max_incident_edges: usize,
 }
 
@@ -52,7 +52,7 @@ impl Default for Thresholds {
             sliver_aspect_ratio: 20.0,
             sliver_min_angle_degrees: 5.0,
             micro_triangle_area_ratio: 1.0e-8,
-            large_triangle_area_ratio: 0.25,
+            large_triangle_edge_to_diagonal_ratio: 0.25,
             max_incident_edges: 12,
         }
     }
@@ -67,8 +67,8 @@ pub struct SliverTriangle {
 #[derive(Debug)]
 pub struct LargeTriangle {
     pub triangle: usize,
-    pub area: f64,
-    pub relative_area: f64,
+    pub longest_edge: f64,
+    pub edge_to_diagonal_ratio: f64,
 }
 #[derive(Debug)]
 pub struct MicroTriangle {
@@ -104,6 +104,7 @@ pub struct Analysis {
 pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
     let bounds = BoundingBox::from_vertices(&mesh.vertices);
     let model_scale_squared = bounds.map_or(0.0, BoundingBox::diagonal_squared);
+    let model_diagonal = bounds.map_or(0.0, BoundingBox::diagonal);
     let mut slivers = Vec::new();
     let mut micro_triangles = Vec::new();
     let mut large_triangles = Vec::new();
@@ -122,6 +123,7 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         let longest_squared = distance_squared(vertices[0], vertices[1])
             .max(distance_squared(vertices[1], vertices[2]))
             .max(distance_squared(vertices[2], vertices[0]));
+        let longest_edge = longest_squared.sqrt();
         let aspect_ratio = if area > 0.0 {
             longest_squared / (2.0 * area)
         } else {
@@ -152,13 +154,15 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
                 },
             });
         }
-        if model_scale_squared > 0.0
-            && area / model_scale_squared >= f64::from(thresholds.large_triangle_area_ratio)
-        {
+        if is_large_triangle(
+            longest_edge,
+            model_diagonal,
+            f64::from(thresholds.large_triangle_edge_to_diagonal_ratio),
+        ) {
             large_triangles.push(LargeTriangle {
                 triangle: index,
-                area,
-                relative_area: area / model_scale_squared,
+                longest_edge,
+                edge_to_diagonal_ratio: longest_edge / model_diagonal,
             });
         }
         let mut triangle_edges = [(usize::MAX, usize::MAX); 3];
@@ -229,6 +233,10 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
     }
 }
 
+fn is_large_triangle(longest_edge: f64, model_diagonal: f64, threshold: f64) -> bool {
+    model_diagonal > 0.0 && longest_edge > threshold * model_diagonal
+}
+
 fn to_f64(vertex: Vec3) -> [f64; 3] {
     [
         f64::from(vertex.x),
@@ -263,6 +271,17 @@ fn minimum_angle_degrees(vertices: [[f64; 3]; 3]) -> f64 {
     angle_degrees(subtract(b, a), subtract(c, a))
         .min(angle_degrees(subtract(a, b), subtract(c, b)))
         .min(angle_degrees(subtract(a, c), subtract(b, c)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_large_triangle;
+
+    #[test]
+    fn large_triangle_threshold_is_strict_at_boundary() {
+        assert!(!is_large_triangle(1.0, 4.0, 0.25));
+        assert!(is_large_triangle(1.000_001, 4.0, 0.25));
+    }
 }
 
 fn angle_degrees(left: [f64; 3], right: [f64; 3]) -> f64 {

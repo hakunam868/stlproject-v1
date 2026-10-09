@@ -55,7 +55,7 @@ fn config_reads_custom_thresholds() {
     let path = root.join("config.json");
     fs::write(
         &path,
-        r#"{"metadata":{"stl_folder":"wrong"},"stl_folder":"models\"quoted","max_incident_edges":7,"sliver_min_angle_degrees":4.5,"micro_triangle_area_ratio":0.000001}"#,
+        r#"{"metadata":{"stl_folder":"wrong"},"stl_folder":"models\"quoted","max_incident_edges":7,"sliver_min_angle_degrees":4.5,"micro_triangle_area_ratio":0.000001,"large_triangle_edge_to_diagonal_ratio":0.3}"#,
     )
     .unwrap();
     let config = Config::load_from(&path).unwrap();
@@ -63,6 +63,7 @@ fn config_reads_custom_thresholds() {
     assert_eq!(config.thresholds.max_incident_edges, 7);
     assert_eq!(config.thresholds.sliver_min_angle_degrees, 4.5);
     assert_eq!(config.thresholds.micro_triangle_area_ratio, 0.000001);
+    assert_eq!(config.thresholds.large_triangle_edge_to_diagonal_ratio, 0.3);
 }
 
 #[test]

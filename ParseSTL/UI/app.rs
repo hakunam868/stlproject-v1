@@ -144,8 +144,8 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
     }
     for item in &analysis.large_triangles {
         output.push_str(&format!(
-            "- Large triangle #{}: area {:.6}, relative area {:.3}\n",
-            item.triangle, item.area, item.relative_area
+            "- Large triangle #{}: longest edge {:.6}, edge/diagonal ratio {:.3}\n",
+            item.triangle, item.longest_edge, item.edge_to_diagonal_ratio
         ));
     }
     for item in &analysis.high_incident_vertices {

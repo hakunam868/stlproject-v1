@@ -3,6 +3,6 @@
   "sliver_aspect_ratio": 20.0,
   "sliver_min_angle_degrees": 5.0,
   "micro_triangle_area_ratio": 1e-8,
-  "large_triangle_area_ratio": 0.25,
+  "large_triangle_edge_to_diagonal_ratio": 0.25,
   "max_incident_edges": 12
 }

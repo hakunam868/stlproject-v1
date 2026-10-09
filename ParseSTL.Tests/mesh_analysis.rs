@@ -43,13 +43,34 @@ fn finds_sliver_and_large_triangles() {
             Vec3::new(0.0, 1.0, 10.0),
         ],
     ]);
-    let thresholds = Thresholds {
-        large_triangle_area_ratio: 0.1,
-        ..Thresholds::default()
-    };
-    let report = analyze(&mesh, thresholds);
+    let report = analyze(&mesh, Thresholds::default());
     assert_eq!(report.slivers.len(), 1);
+    assert_eq!(report.large_triangles.len(), 2);
+    assert_eq!(report.large_triangles[0].triangle, 0);
+    assert_eq!(report.large_triangles[1].triangle, 1);
+}
+
+#[test]
+fn flags_cube_face_triangle_by_longest_edge_to_model_diagonal_ratio() {
+    let mesh = mesh(vec![
+        [
+            Vec3::ZERO,
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(0.0, 10.0, 0.0),
+        ],
+        [
+            Vec3::new(0.0, 0.0, 10.0),
+            Vec3::new(0.0, 0.0, 10.0),
+            Vec3::new(0.0, 0.0, 10.0),
+        ],
+    ]);
+
+    let report = analyze(&mesh, Thresholds::default());
+
     assert_eq!(report.large_triangles.len(), 1);
+    assert_eq!(report.large_triangles[0].triangle, 0);
+    assert!((report.large_triangles[0].longest_edge - 10.0_f64 * 2.0_f64.sqrt()).abs() < 1.0e-6);
+    assert!(report.large_triangles[0].edge_to_diagonal_ratio > 0.25);
 }
 
 #[test]
