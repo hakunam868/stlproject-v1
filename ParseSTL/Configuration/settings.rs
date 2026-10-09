@@ -16,7 +16,7 @@ struct RawConfig {
     sliver_aspect_ratio: Option<f32>,
     sliver_min_angle_degrees: Option<f32>,
     micro_triangle_area_ratio: Option<f32>,
-    large_triangle_area_ratio: Option<f32>,
+    large_triangle_edge_to_diagonal_ratio: Option<f32>,
     max_incident_edges: Option<usize>,
 }
 
@@ -75,7 +75,9 @@ impl Config {
             sliver_aspect_ratio: raw.sliver_aspect_ratio.unwrap_or(20.0),
             sliver_min_angle_degrees: raw.sliver_min_angle_degrees.unwrap_or(5.0),
             micro_triangle_area_ratio: raw.micro_triangle_area_ratio.unwrap_or(1.0e-8),
-            large_triangle_area_ratio: raw.large_triangle_area_ratio.unwrap_or(0.25),
+            large_triangle_edge_to_diagonal_ratio: raw
+                .large_triangle_edge_to_diagonal_ratio
+                .unwrap_or(0.25),
             max_incident_edges: raw.max_incident_edges.unwrap_or(12),
         };
         if !thresholds.sliver_aspect_ratio.is_finite()
@@ -85,8 +87,8 @@ impl Config {
             || thresholds.sliver_min_angle_degrees >= 180.0
             || !thresholds.micro_triangle_area_ratio.is_finite()
             || thresholds.micro_triangle_area_ratio <= 0.0
-            || !thresholds.large_triangle_area_ratio.is_finite()
-            || thresholds.large_triangle_area_ratio <= 0.0
+            || !thresholds.large_triangle_edge_to_diagonal_ratio.is_finite()
+            || thresholds.large_triangle_edge_to_diagonal_ratio <= 0.0
         {
             return Err(invalid_config(
                 "quality thresholds must be finite and within their valid ranges",

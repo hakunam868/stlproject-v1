@@ -29,6 +29,8 @@ cargo run --bin stl-analyzer
 
 The menu reports the STL format, face count, exact-coordinate unique vertices, bounding box, and mesh-quality findings. ASCII and binary STL are supported.
 
+Large-triangle findings use the longest-edge-to-bounding-box-diagonal ratio. The default threshold is `0.25`, configured by `large_triangle_edge_to_diagonal_ratio` in `ParseSTL/Config.json` and `StlGen/Config.json`.
+
 ## Generate models
 
 ```powershell
