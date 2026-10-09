@@ -16,24 +16,39 @@ pub struct Mesh {
 
 impl Mesh {
     pub fn from_triangles(triangles: Vec<Triangle>) -> Self {
-        let (min, max, max_abs) = triangles
-            .iter()
-            .flat_map(|triangle| triangle.vertices)
-            .fold(
-                ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3], 0.0_f64),
-                |(mut min, mut max, max_abs), vertex| {
+        let (min, max, max_abs, min_edge_squared) = triangles.iter().fold(
+            (
+                [f64::INFINITY; 3],
+                [f64::NEG_INFINITY; 3],
+                0.0_f64,
+                f64::INFINITY,
+            ),
+            |(mut min, mut max, mut max_abs, mut min_edge_squared), triangle| {
+                let vertices = triangle.vertices;
+                for vertex in vertices {
                     for (axis, value) in [vertex.x, vertex.y, vertex.z].into_iter().enumerate() {
                         let value = f64::from(value);
                         min[axis] = min[axis].min(value);
                         max[axis] = max[axis].max(value);
                     }
-                    let max_abs = max_abs
+                    max_abs = max_abs
                         .max(f64::from(vertex.x).abs())
                         .max(f64::from(vertex.y).abs())
                         .max(f64::from(vertex.z).abs());
-                    (min, max, max_abs)
-                },
-            );
+                }
+                for (start, end) in [
+                    (vertices[0], vertices[1]),
+                    (vertices[1], vertices[2]),
+                    (vertices[2], vertices[0]),
+                ] {
+                    let distance_squared = distance_squared(start, end);
+                    if distance_squared > 0.0 {
+                        min_edge_squared = min_edge_squared.min(distance_squared);
+                    }
+                }
+                (min, max, max_abs, min_edge_squared)
+            },
+        );
         let diagonal = if min[0].is_finite() {
             ((max[0] - min[0]).powi(2) + (max[1] - min[1]).powi(2) + (max[2] - min[2]).powi(2))
                 .sqrt()
@@ -42,6 +57,11 @@ impl Mesh {
         };
         let tolerance =
             (diagonal * RELATIVE_WELD_TOLERANCE).max(max_abs * f64::from(f32::EPSILON) * 4.0);
+        let tolerance = if min_edge_squared.is_finite() {
+            tolerance.min(min_edge_squared.sqrt() * 0.5)
+        } else {
+            tolerance
+        };
         let cell_size = if tolerance > 0.0 { tolerance } else { 1.0 };
 
         let mut vertices: Vec<Vec3> = Vec::new();
@@ -108,4 +128,11 @@ impl Mesh {
             *self.vertices.get(indices[2])?,
         ]))
     }
+}
+
+fn distance_squared(left: Vec3, right: Vec3) -> f64 {
+    let dx = f64::from(left.x) - f64::from(right.x);
+    let dy = f64::from(left.y) - f64::from(right.y);
+    let dz = f64::from(left.z) - f64::from(right.z);
+    dx * dx + dy * dy + dz * dz
 }

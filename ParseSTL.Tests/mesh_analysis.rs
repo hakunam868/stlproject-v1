@@ -78,6 +78,22 @@ fn computes_thin_triangle_metrics_with_f64_precision() {
 }
 
 #[test]
+fn welding_preserves_short_edges_in_large_models() {
+    let height = 1.0e-3_f32;
+    let mesh = mesh(vec![[
+        Vec3::ZERO,
+        Vec3::new(1.0e4, 0.0, 0.0),
+        Vec3::new(1.0e4, height, 0.0),
+    ]]);
+    let report = analyze(&mesh, Thresholds::default());
+
+    assert_eq!(mesh.vertices.len(), 3);
+    assert_eq!(report.micro_triangles.len(), 0);
+    let expected_area = 0.5 * 1.0e4 * f64::from(height);
+    assert!((report.slivers[0].area - expected_area).abs() / expected_area < 1.0e-9);
+}
+
+#[test]
 fn flags_acute_triangle_by_minimum_angle_even_when_aspect_is_below_threshold() {
     let mesh = mesh(vec![[
         Vec3::ZERO,
@@ -216,6 +232,38 @@ fn report_includes_open_and_non_manifold_edge_findings() {
     assert!(report.contains("Topology: not watertight (FAIL; 6 open edges, 1 non-manifold edges)"));
     assert!(report.contains("Open edge"));
     assert!(report.contains("Non-manifold edge"));
+}
+
+#[test]
+fn report_caps_detailed_findings_and_reports_omitted_count() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("stl-report-cap-{stamp}.stl"));
+    let triangles = (0..105)
+        .map(|index| {
+            let x = index as f32 * 2.0;
+            Triangle::new([
+                Vec3::new(x, 0.0, 0.0),
+                Vec3::new(x + 1.0, 0.0, 0.0),
+                Vec3::new(x, 1.0, 0.0),
+            ])
+        })
+        .collect::<Vec<_>>();
+    write_ascii(&mut File::create(&path).unwrap(), "report-cap", &triangles).unwrap();
+
+    let report = analyze_path(&path, Thresholds::default()).unwrap();
+
+    fs::remove_file(path).unwrap();
+    assert!(report.contains("Quality warnings: 315 total; showing at most 100 (215 omitted)"));
+    assert_eq!(
+        report
+            .lines()
+            .filter(|line| line.starts_with("- Open edge"))
+            .count(),
+        100
+    );
 }
 
 #[test]

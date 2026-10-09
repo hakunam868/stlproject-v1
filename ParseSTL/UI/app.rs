@@ -12,6 +12,8 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+const MAX_REPORTED_FINDINGS: usize = 100;
+
 pub fn run_menu(
     input: &mut dyn BufRead,
     output: &mut dyn Write,
@@ -119,54 +121,64 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
             analysis.non_manifold_edges.len()
         ));
     }
-    if analysis.slivers.is_empty()
-        && analysis.micro_triangles.is_empty()
-        && analysis.large_triangles.is_empty()
-        && analysis.high_incident_vertices.is_empty()
-        && analysis.open_edges.is_empty()
-        && analysis.non_manifold_edges.is_empty()
-    {
+    let total_findings = analysis.slivers.len()
+        + analysis.micro_triangles.len()
+        + analysis.large_triangles.len()
+        + analysis.high_incident_vertices.len()
+        + analysis.open_edges.len()
+        + analysis.non_manifold_edges.len();
+    if total_findings == 0 {
         output.push_str("Quality warnings: none\n");
         return output;
     }
-    output.push_str("Quality warnings:\n");
-    for item in &analysis.slivers {
+    output.push_str(&format!(
+        "Quality warnings: {total_findings} total; showing at most {MAX_REPORTED_FINDINGS} ({} omitted)\n",
+        total_findings.saturating_sub(MAX_REPORTED_FINDINGS)
+    ));
+    let mut remaining = MAX_REPORTED_FINDINGS;
+    for item in take_report_findings(&analysis.slivers, &mut remaining) {
         output.push_str(&format!(
             "- Sliver triangle #{}: area {:.6}, aspect ratio {:.3}\n",
             item.triangle, item.area, item.aspect_ratio
         ));
     }
-    for item in &analysis.micro_triangles {
+    for item in take_report_findings(&analysis.micro_triangles, &mut remaining) {
         output.push_str(&format!(
             "- Micro triangle #{}: area {:.6}, relative area {:.3e}\n",
             item.triangle, item.area, item.relative_area
         ));
     }
-    for item in &analysis.large_triangles {
+    for item in take_report_findings(&analysis.large_triangles, &mut remaining) {
         output.push_str(&format!(
             "- Large triangle #{}: area {:.6}, relative area {:.3}\n",
             item.triangle, item.area, item.relative_area
         ));
     }
-    for item in &analysis.high_incident_vertices {
+    for item in take_report_findings(&analysis.high_incident_vertices, &mut remaining) {
         output.push_str(&format!(
             "- Vertex #{} at ({:.6}, {:.6}, {:.6}) has {} incident edges\n",
             item.vertex, item.position.x, item.position.y, item.position.z, item.incident_edges
         ));
     }
-    for edge in &analysis.open_edges {
+    for edge in take_report_findings(&analysis.open_edges, &mut remaining) {
         output.push_str(&format!(
             "- Open edge ({}, {}): incident to {} face\n",
             edge.vertices[0], edge.vertices[1], edge.incident_faces
         ));
     }
-    for edge in &analysis.non_manifold_edges {
+    for edge in take_report_findings(&analysis.non_manifold_edges, &mut remaining) {
         output.push_str(&format!(
             "- Non-manifold edge ({}, {}): incident to {} faces\n",
             edge.vertices[0], edge.vertices[1], edge.incident_faces
         ));
     }
     output
+}
+
+fn take_report_findings<'a, T>(findings: &'a [T], remaining: &mut usize) -> &'a [T] {
+    let count = findings.len().min(*remaining);
+    *remaining -= count;
+    &findings[..count]
 }
 
 pub fn generate_sample(
