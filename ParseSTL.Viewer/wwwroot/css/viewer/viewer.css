@@ -1,0 +1,358 @@
+﻿* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE 10+ */
+    user-select: none; /* Standard syntax */
+}
+
+/* Disable drag selection */
+body {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-drag: none; /* Safari */
+    -khtml-user-drag: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera, and Firefox */
+}
+
+.container {
+    display: flex;
+    height: 100%;
+    margin:0px !important;
+}
+
+.navbar_left {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: #f8f9fa;
+}
+
+    .navbar_left button {
+        margin-top: 5px;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+    }
+
+        .navbar_left button:hover {
+            background-color: #c7c0c0;
+        }
+
+.toggle_selection_mode {
+    display: flex;
+    flex-direction: column;
+    padding: 0 4px;
+    display: none; /* Hide the element */
+}
+
+.toggle-label {
+    display: block;
+    padding: 2px;
+    cursor: pointer;
+}
+
+.content-container {
+    flex: 1;
+}
+
+.viewer {
+    height: 100vh;
+    background: white;
+}
+
+.navbar_right {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    background-color: #f8f9fa;
+}
+
+    .navbar_right button {
+        margin-top: 5px;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+    }
+
+        .navbar_right button:hover {
+            background-color: #c7c0c0;
+        }
+
+.grab_menu {
+    cursor: grab;
+}
+
+    .grab_menu:active {
+        cursor: grabbing;
+    }
+
+#annotate:focus {
+    outline: none;
+}
+
+/*loader*/
+#loader {
+    border: 8px solid #3498db; /* Light blue border */
+    border-radius: 50%;
+    border-top: 8px solid #f3f3f3; /* White border on top */
+    width: 50px;
+    height: 50px;
+    -webkit-animation: spin 1s linear infinite; /* Safari */
+    animation: spin 1s linear infinite;
+    position: fixed;
+    top: 50%; /* Positioning from the top */
+    left: 50%; /* Positioning from the left */
+    margin-top: -25px; /* Adjusts to center vertically */
+    margin-left: -25px; /* Adjusts to center horizontally */
+    z-index: 9999; /* Make sure it's on top of everything */
+}
+
+/* Animation for spinning */
+@-webkit-keyframes spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+    }
+
+    100% {
+        -webkit-transform: rotate(360deg);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Hide the loader initially */
+.hidden {
+    display: none;
+}
+
+/* /css for accordian/ */
+.assemblies {
+    position: absolute;
+    top: 10px;
+    left: 50px;
+    max-height: calc(100vh - 20px); /* Adjust the max-height as needed */
+    overflow-y: auto; /* Enable vertical scrolling */
+}
+
+    /* Hide scrollbar for Firefox */
+    .assemblies::-webkit-scrollbar {
+        display: none;
+    }
+
+/* Hide scrollbar for IE/Edge */
+.assemblies {
+    -ms-overflow-style: none;
+}
+
+    /* Hide scrollbar for Chrome/Safari */
+    .assemblies::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+.accordion {
+    color: black;
+    cursor: pointer;
+    width: fit-content; /*Adjust width based on title length*/
+    /* width: 100%; */
+    border: 1px solid transparent;
+    text-align: left;
+    font-size: 15px;
+    line-height: 30px;
+    padding-inline: 5px; /* Add padding */
+    margin-bottom: 5px; /* Add margin between parent accordions */
+    background: rgba(200, 200, 200, 0);
+    backdrop-filter: blur(0px);
+}
+
+.active {
+    background: rgba(200, 200, 200, 0);
+}
+
+.accordion.active {
+    border: 1px solid rgb(255, 114, 196);
+    /*background-color: #b0c9f5;*/
+}
+
+.arrow {
+    float: left;
+    margin-left: 10px;
+    margin-right: 5px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 10px solid black; 
+    transform: translateY(70%);
+}
+
+
+.icon-wrapper {
+    width: 25px;
+    height: 25px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+}
+
+.color-container {
+    float: left;
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin-right: 5px;
+    width: 10px;
+    height: 100%; /* Set height to 100% */
+}
+
+.image_3d_icon {
+    float: left;
+    margin-top: 3px;
+    margin-right: 5px;
+}
+
+.rotate-arrow {
+    transform: rotate(90deg) translate(70%, 0%);
+}
+
+
+.panel {
+    padding: 0 18px;
+    background-color: white;
+    max-height: 0;
+    transition: max-height 0.2s ease-out;
+}
+
+/* /css for right click and center content/ */
+#shellConfig {
+    padding: 5px;
+    display: block;
+}
+
+#ContextMenu {
+    border-radius: 10px;
+    margin-left: 5px;
+    background-color: rgba(230, 230, 230, 0.5);
+    backdrop-filter: blur(10px);
+    position: fixed;
+    transform: scale(0);
+    transition: transform 0.1s;
+    transition-timing-function: ease-in-out;
+    transform-origin: top left;
+}
+
+#shellConfig {
+    display: grid;
+    flex-direction: column;
+    row-gap: 6px;
+}
+
+#annotate {
+    border: none;
+    padding: 4px;
+    width: 100%;
+    border-radius: 5px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.mr {
+    margin-right: 10px;
+}
+
+.slider {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #d3d3d3;
+    outline: none;
+    -webkit-transition: 0.2s;
+    transition: opacity 0.2s;
+    display: block;
+    margin: 10px 0;
+}
+
+    .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 15px;
+        height: 15px;
+        background: #b0c9f5;
+        cursor: pointer;
+    }
+
+    .slider:hover {
+        opacity: 1;
+    }
+
+.margin-border-bottom {
+    border-bottom: 1px solid black;
+    width: 100%;
+}
+
+/* New CSS */
+.hover-effect:hover {
+    background-color: lightgray;
+    cursor: pointer;
+}
+
+/* CSS for the toast message */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: green;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 5px;
+    display: none;
+}
+
+.hidden {
+    display: none;
+}
+
+main{
+    position:relative !important;
+}
