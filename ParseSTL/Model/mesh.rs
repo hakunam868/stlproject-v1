@@ -1,5 +1,5 @@
 use crate::geometry::{Triangle, Vec3};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 const RELATIVE_WELD_TOLERANCE: f64 = 1.0e-6;
 
@@ -62,11 +62,13 @@ impl Mesh {
         } else {
             tolerance
         };
+        let tolerance_squared = tolerance * tolerance;
         let cell_size = if tolerance > 0.0 { tolerance } else { 1.0 };
 
         let mut vertices: Vec<Vec3> = Vec::new();
-        let mut lookup: HashMap<[i64; 3], Vec<usize>> =
-            HashMap::with_capacity(triangles.len().saturating_mul(2));
+        let mut lookup: FxHashMap<[i64; 3], (usize, usize)> =
+            FxHashMap::with_capacity_and_hasher(triangles.len(), Default::default());
+        let mut next_in_cell = Vec::with_capacity(triangles.len());
         let mut indexed = Vec::with_capacity(triangles.len());
 
         for triangle in triangles {
@@ -79,25 +81,26 @@ impl Mesh {
                 ];
                 let cell = point.map(|value| (value / cell_size).floor() as i64);
                 let mut match_index = None;
-                'neighbors: for x in -1..=1 {
-                    for y in -1..=1 {
-                        for z in -1..=1 {
+                'neighbors: for x in -1_i64..=1 {
+                    for y in -1_i64..=1 {
+                        for z in -1_i64..=1 {
                             let neighbor = [
                                 cell[0].saturating_add(x),
                                 cell[1].saturating_add(y),
                                 cell[2].saturating_add(z),
                             ];
-                            if let Some(candidates) = lookup.get(&neighbor) {
-                                match_index = candidates.iter().copied().find(|&candidate| {
-                                    let existing = vertices[candidate];
-                                    let dx = point[0] - f64::from(existing.x);
-                                    let dy = point[1] - f64::from(existing.y);
-                                    let dz = point[2] - f64::from(existing.z);
-                                    dx * dx + dy * dy + dz * dz <= tolerance * tolerance
-                                });
-                                if match_index.is_some() {
+                            let mut candidate = lookup.get(&neighbor).map(|&(head, _)| head);
+                            while let Some(candidate_index) = candidate {
+                                let existing = vertices[candidate_index];
+                                let dx = point[0] - f64::from(existing.x);
+                                let dy = point[1] - f64::from(existing.y);
+                                let dz = point[2] - f64::from(existing.z);
+                                if dx * dx + dy * dy + dz * dz <= tolerance_squared {
+                                    match_index = Some(candidate_index);
                                     break 'neighbors;
                                 }
+                                candidate = (next_in_cell[candidate_index] != usize::MAX)
+                                    .then_some(next_in_cell[candidate_index]);
                             }
                         }
                     }
@@ -107,7 +110,17 @@ impl Mesh {
                     None => {
                         let index = vertices.len();
                         vertices.push(vertex);
-                        lookup.entry(cell).or_default().push(index);
+                        next_in_cell.push(usize::MAX);
+                        match lookup.entry(cell) {
+                            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                                let (head, tail) = *entry.get();
+                                next_in_cell[tail] = index;
+                                entry.insert((head, index));
+                            }
+                            std::collections::hash_map::Entry::Vacant(entry) => {
+                                entry.insert((index, index));
+                            }
+                        }
                         index
                     }
                 };

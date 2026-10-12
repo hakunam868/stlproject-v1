@@ -308,6 +308,27 @@ fn welds_vertices_with_small_floating_point_differences() {
 }
 
 #[test]
+fn welding_checks_all_candidates_in_a_grid_cell() {
+    let zero = Vec3::ZERO;
+    let one_x = Vec3::new(1.0, 0.0, 0.0);
+    let one_y = Vec3::new(0.0, 1.0, 0.0);
+    let one_z = Vec3::new(0.0, 0.0, 1.0);
+    let one_xy = Vec3::new(1.0, 1.0, 0.0);
+    let tolerance = 3.0_f32.sqrt() * 1.0e-6;
+    let first_in_cell = Vec3::new(0.9 * tolerance, 0.9 * tolerance, 0.0);
+    let near_origin = Vec3::new(0.1 * tolerance, 0.1 * tolerance, 0.0);
+    let one_xyz = Vec3::new(1.0, 1.0, 1.0);
+    let mesh = mesh(vec![
+        [zero, one_x, one_y],
+        [zero, one_xy, one_z],
+        [first_in_cell, near_origin, one_xyz],
+    ]);
+
+    assert_eq!(mesh.vertices.len(), 7);
+    assert_eq!(mesh.triangles[2].indices, [5, 0, 6]);
+}
+
+#[test]
 fn finds_micro_triangles_relative_to_model_size() {
     let mesh = mesh(vec![
         [
@@ -370,4 +391,29 @@ fn report_includes_micro_triangle_findings() {
     .unwrap();
     fs::remove_file(path).unwrap();
     assert!(report.contains("Micro triangle #1"));
+}
+
+#[test]
+#[ignore = "manual performance check; run with cargo test --release --test mesh_analysis benchmark_vertex_welding_million_triangles -- --ignored --nocapture"]
+fn benchmark_vertex_welding_million_triangles() {
+    const TRIANGLE_COUNT: u32 = 1_000_000;
+    let mut bytes = Vec::with_capacity(84 + TRIANGLE_COUNT as usize * 50);
+    stl_analyzer::services::write_benchmark_binary(&mut bytes, TRIANGLE_COUNT).unwrap();
+    let parsed = parse_bytes(&bytes).unwrap();
+    assert_eq!(parsed.triangles.len(), TRIANGLE_COUNT as usize);
+
+    let mut elapsed = Vec::with_capacity(5);
+    for _ in 0..5 {
+        let triangles = parsed.triangles.clone();
+        let start = std::time::Instant::now();
+        let mesh = Mesh::from_triangles(triangles);
+        elapsed.push(start.elapsed());
+        assert_eq!(mesh.triangles.len(), TRIANGLE_COUNT as usize);
+        assert_eq!(mesh.vertices.len(), 501_416);
+    }
+    elapsed.sort_unstable();
+    println!(
+        "1M triangle weld median: {:?}; runs: {:?}",
+        elapsed[2], elapsed
+    );
 }
