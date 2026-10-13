@@ -311,9 +311,9 @@ fn cylinder(density: usize, radius: f32, height: f32) -> Vec<Triangle> {
         let b = p((i + 1) % n, bottom);
         let c = p((i + 1) % n, top);
         let d = p(i, top);
-        add_quad(&mut triangles, a, b, c, d);
-        triangles.push(Triangle::new([Vec3::new(0.0, top, 0.0), d, c]));
-        triangles.push(Triangle::new([Vec3::new(0.0, bottom, 0.0), b, a]));
+        add_quad(&mut triangles, a, d, c, b);
+        triangles.push(Triangle::new([Vec3::new(0.0, top, 0.0), c, d]));
+        triangles.push(Triangle::new([Vec3::new(0.0, bottom, 0.0), a, b]));
     }
     triangles
 }
@@ -330,8 +330,8 @@ fn cone(density: usize, radius: f32, height: f32) -> Vec<Triangle> {
         };
         let a = point(i);
         let b = point((i + 1) % n);
-        triangles.push(Triangle::new([apex, a, b]));
-        triangles.push(Triangle::new([center, b, a]));
+        triangles.push(Triangle::new([apex, b, a]));
+        triangles.push(Triangle::new([center, a, b]));
     }
     triangles
 }
@@ -351,9 +351,9 @@ fn torus(density: usize, major_radius: f32, minor_radius: f32) -> Vec<Triangle> 
             add_quad(
                 &mut triangles,
                 point(u, v),
-                point((u + 1) % major, v),
-                point((u + 1) % major, (v + 1) % minor),
                 point(u, (v + 1) % minor),
+                point((u + 1) % major, (v + 1) % minor),
+                point((u + 1) % major, v),
             );
         }
     }

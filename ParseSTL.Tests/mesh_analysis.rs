@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::time::{SystemTime, UNIX_EPOCH};
 use stl_analyzer::analysis::{analyze, BoundingBox, Thresholds};
@@ -163,12 +164,15 @@ fn reports_exact_unique_vertices_and_incident_edges() {
 }
 
 #[test]
-fn generated_cube_prism_tetrahedron_and_sphere_are_watertight() {
+fn generated_shapes_are_watertight_and_have_expected_topology() {
     for kind in [
-        SampleKind::Cube,
         SampleKind::Prism,
-        SampleKind::Tetrahedron,
+        SampleKind::Cube,
+        SampleKind::Torus,
+        SampleKind::Cylinder,
+        SampleKind::Cone,
         SampleKind::Sphere,
+        SampleKind::Tetrahedron,
     ] {
         let mut ascii = Vec::new();
         write_ascii(&mut ascii, "generated", &generate(kind, 8).unwrap()).unwrap();
@@ -191,7 +195,49 @@ fn generated_cube_prism_tetrahedron_and_sphere_are_watertight() {
             "{kind:?} had {} micro triangles",
             report.micro_triangles.len()
         );
+        let edges = mesh
+            .triangles
+            .iter()
+            .flat_map(|triangle| {
+                let [a, b, c] = triangle.indices;
+                [
+                    (a.min(b), a.max(b)),
+                    (b.min(c), b.max(c)),
+                    (c.min(a), c.max(a)),
+                ]
+            })
+            .collect::<HashSet<_>>();
+        let expected_euler_characteristic = if kind == SampleKind::Torus { 0 } else { 2 };
+        assert_eq!(
+            mesh.vertices.len() as isize - edges.len() as isize + mesh.triangles.len() as isize,
+            expected_euler_characteristic,
+            "{kind:?} had an unexpected Euler characteristic"
+        );
+        assert!(
+            signed_volume(&mesh) > 0.0,
+            "{kind:?} did not have positive signed volume"
+        );
     }
+}
+
+fn signed_volume(mesh: &Mesh) -> f64 {
+    mesh.triangles
+        .iter()
+        .map(|triangle| {
+            let [a, b, c] = triangle.indices.map(|index| {
+                let vertex = mesh.vertices[index];
+                [
+                    f64::from(vertex.x),
+                    f64::from(vertex.y),
+                    f64::from(vertex.z),
+                ]
+            });
+            a[0] * (b[1] * c[2] - b[2] * c[1])
+                + a[1] * (b[2] * c[0] - b[0] * c[2])
+                + a[2] * (b[0] * c[1] - b[1] * c[0])
+        })
+        .sum::<f64>()
+        / 6.0
 }
 
 #[test]
@@ -253,6 +299,54 @@ fn report_includes_open_and_non_manifold_edge_findings() {
     assert!(report.contains("Topology: not watertight (FAIL; 6 open edges, 1 non-manifold edges)"));
     assert!(report.contains("Open edge"));
     assert!(report.contains("Non-manifold edge"));
+}
+
+#[test]
+fn report_summarizes_quality_percentages_and_status() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("stl-quality-summary-{stamp}.stl"));
+    let triangles = generate(SampleKind::Tetrahedron, 1).unwrap();
+    write_ascii(&mut File::create(&path).unwrap(), "tetrahedron", &triangles).unwrap();
+
+    let passing_report = analyze_path(
+        &path,
+        Thresholds {
+            large_triangle_edge_to_diagonal_ratio: 2.0,
+            ..Thresholds::default()
+        },
+    )
+    .unwrap();
+    assert!(passing_report.contains("slivers 0/4 (0.0%)"));
+    assert!(passing_report.contains("Quality status: PASS (0 findings)"));
+
+    let configured_limit_report = analyze_path(
+        &path,
+        Thresholds {
+            max_quality_issue_percentage: 100.0,
+            ..Thresholds::default()
+        },
+    )
+    .unwrap();
+    assert!(configured_limit_report.contains("large triangles 4/4 (100.0%)"));
+    assert!(configured_limit_report
+        .contains("Quality status: PASS (4 findings within configured limits)"));
+
+    write_ascii(
+        &mut File::create(&path).unwrap(),
+        "open-triangle",
+        &[Triangle::new([
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        ])],
+    )
+    .unwrap();
+    let failing_report = analyze_path(&path, Thresholds::default()).unwrap();
+    fs::remove_file(path).unwrap();
+    assert!(failing_report.contains("Quality status: FAIL ("));
 }
 
 #[test]
@@ -351,6 +445,36 @@ fn finds_micro_triangles_relative_to_model_size() {
     );
     assert_eq!(report.micro_triangles.len(), 1);
     assert_eq!(report.micro_triangles[0].triangle, 1);
+}
+
+#[test]
+fn default_micro_threshold_is_relative_and_does_not_double_report_slivers() {
+    let mesh = mesh(vec![
+        [
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        ],
+        [
+            Vec3::new(0.2, 0.0, 1.0),
+            Vec3::new(0.21, 0.0, 1.0),
+            Vec3::new(0.2, 1.0e-12, 1.0),
+        ],
+        [
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(0.1, 0.0, 1.0),
+            Vec3::new(0.0, 1.0e-5, 1.0),
+        ],
+    ]);
+
+    let report = analyze(&mesh, Thresholds::default());
+
+    assert_eq!(Thresholds::default().micro_triangle_area_ratio, 1.0e-12);
+    assert_eq!(report.micro_triangles.len(), 1);
+    assert_eq!(report.micro_triangles[0].triangle, 1);
+    assert!(report.micro_triangles[0].relative_area <= 1.0e-12);
+    assert_eq!(report.slivers.len(), 1);
+    assert_eq!(report.slivers[0].triangle, 2);
 }
 
 #[test]

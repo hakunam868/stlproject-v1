@@ -95,10 +95,22 @@ fn read_line(input: &mut dyn BufRead) -> io::Result<Option<String>> {
 pub fn analyze_path(path: &Path, thresholds: Thresholds) -> Result<String, StlError> {
     let (format, mesh) = crate::processing::load_mesh(path)?;
     let analysis = analyze(&mesh, thresholds);
-    Ok(format_report(path, &format.to_string(), &mesh, &analysis))
+    Ok(format_report(
+        path,
+        &format.to_string(),
+        &mesh,
+        &analysis,
+        thresholds,
+    ))
 }
 
-fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) -> String {
+fn format_report(
+    path: &Path,
+    format: &str,
+    mesh: &Mesh,
+    analysis: &Analysis,
+    thresholds: Thresholds,
+) -> String {
     let mut output = format!(
         "\nFile: {}\nFormat: {format}\nTriangles/faces: {}\nUnique vertices: {}\n",
         path.display(),
@@ -127,6 +139,42 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         + analysis.high_incident_vertices.len()
         + analysis.open_edges.len()
         + analysis.non_manifold_edges.len();
+    output.push_str(&format!(
+        "Quality summary: slivers {}/{} ({:.1}%), micro triangles {}/{} ({:.1}%), large triangles {}/{} ({:.1}%), high-incidence vertices {}/{} ({:.1}%); per-category limit {:.1}%\n",
+        analysis.slivers.len(),
+        mesh.triangles.len(),
+        percentage(analysis.slivers.len(), mesh.triangles.len()),
+        analysis.micro_triangles.len(),
+        mesh.triangles.len(),
+        percentage(analysis.micro_triangles.len(), mesh.triangles.len()),
+        analysis.large_triangles.len(),
+        mesh.triangles.len(),
+        percentage(analysis.large_triangles.len(), mesh.triangles.len()),
+        analysis.high_incident_vertices.len(),
+        mesh.vertices.len(),
+        percentage(analysis.high_incident_vertices.len(), mesh.vertices.len()),
+        f64::from(thresholds.max_quality_issue_percentage),
+    ));
+    let issue_percentages = [
+        percentage(analysis.slivers.len(), mesh.triangles.len()),
+        percentage(analysis.micro_triangles.len(), mesh.triangles.len()),
+        percentage(analysis.large_triangles.len(), mesh.triangles.len()),
+        percentage(analysis.high_incident_vertices.len(), mesh.vertices.len()),
+    ];
+    let within_quality_limits = issue_percentages
+        .into_iter()
+        .all(|value| value <= f64::from(thresholds.max_quality_issue_percentage));
+    let quality_passes = analysis.is_watertight && within_quality_limits;
+    output.push_str(&format!(
+        "Quality status: {} ({} findings{})\n",
+        if quality_passes { "PASS" } else { "FAIL" },
+        total_findings,
+        if quality_passes && total_findings > 0 {
+            " within configured limits"
+        } else {
+            ""
+        },
+    ));
     if total_findings == 0 {
         output.push_str("Quality warnings: none\n");
         return output;
@@ -179,6 +227,14 @@ fn take_report_findings<'a, T>(findings: &'a [T], remaining: &mut usize) -> &'a 
     let count = findings.len().min(*remaining);
     *remaining -= count;
     &findings[..count]
+}
+
+fn percentage(count: usize, total: usize) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        count as f64 * 100.0 / total as f64
+    }
 }
 
 pub fn generate_sample(

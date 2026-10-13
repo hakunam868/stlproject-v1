@@ -63,10 +63,16 @@ impl Mesh {
             tolerance
         };
         let tolerance_squared = tolerance * tolerance;
-        let cell_size = if tolerance > 0.0 { tolerance } else { 1.0 };
+        let cell_size = if tolerance > 0.0 {
+            tolerance * 2.0
+        } else {
+            1.0
+        };
 
         let mut vertices: Vec<Vec3> = Vec::new();
         let mut lookup: FxHashMap<[i64; 3], (usize, usize)> =
+            FxHashMap::with_capacity_and_hasher(triangles.len(), Default::default());
+        let mut exact_lookup: FxHashMap<[u32; 3], usize> =
             FxHashMap::with_capacity_and_hasher(triangles.len(), Default::default());
         let mut next_in_cell = Vec::with_capacity(triangles.len());
         let mut indexed = Vec::with_capacity(triangles.len());
@@ -74,16 +80,24 @@ impl Mesh {
         for triangle in triangles {
             let mut indices = [0; 3];
             for (slot, vertex) in triangle.vertices.into_iter().enumerate() {
+                let exact_key = exact_key(vertex);
+                if let Some(index) = exact_key.and_then(|key| exact_lookup.get(&key).copied()) {
+                    indices[slot] = index;
+                    continue;
+                }
                 let point = [
                     f64::from(vertex.x),
                     f64::from(vertex.y),
                     f64::from(vertex.z),
                 ];
                 let cell = point.map(|value| (value / cell_size).floor() as i64);
+                let (x_neighbors, x_count) = neighboring_cells(point[0], cell_size, tolerance);
+                let (y_neighbors, y_count) = neighboring_cells(point[1], cell_size, tolerance);
+                let (z_neighbors, z_count) = neighboring_cells(point[2], cell_size, tolerance);
                 let mut match_index = None;
-                'neighbors: for x in -1_i64..=1 {
-                    for y in -1_i64..=1 {
-                        for z in -1_i64..=1 {
+                'neighbors: for &x in &x_neighbors[..x_count] {
+                    for &y in &y_neighbors[..y_count] {
+                        for &z in &z_neighbors[..z_count] {
                             let neighbor = [
                                 cell[0].saturating_add(x),
                                 cell[1].saturating_add(y),
@@ -124,6 +138,9 @@ impl Mesh {
                         index
                     }
                 };
+                if let Some(key) = exact_key {
+                    exact_lookup.entry(key).or_insert(indices[slot]);
+                }
             }
             indexed.push(IndexedTriangle { indices });
         }
@@ -141,6 +158,37 @@ impl Mesh {
             *self.vertices.get(indices[2])?,
         ]))
     }
+}
+
+fn neighboring_cells(value: f64, cell_size: f64, tolerance: f64) -> ([i64; 3], usize) {
+    let scaled = value / cell_size;
+    if !scaled.is_finite() {
+        return ([-1, 0, 1], 3);
+    }
+    let fraction = scaled - scaled.floor();
+    let mut neighbors = [0; 3];
+    let mut len = 0;
+    if fraction * cell_size <= tolerance {
+        neighbors[len] = -1;
+        len += 1;
+    }
+    neighbors[len] = 0;
+    len += 1;
+    if (1.0 - fraction) * cell_size <= tolerance {
+        neighbors[len] = 1;
+        len += 1;
+    }
+    (neighbors, len)
+}
+
+fn exact_key(vertex: Vec3) -> Option<[u32; 3]> {
+    let coordinates = [vertex.x, vertex.y, vertex.z];
+    coordinates
+        .iter()
+        .all(|coordinate| coordinate.is_finite())
+        .then(|| {
+            coordinates.map(|coordinate| if coordinate == 0.0 { 0.0 } else { coordinate }.to_bits())
+        })
 }
 
 fn distance_squared(left: Vec3, right: Vec3) -> f64 {
