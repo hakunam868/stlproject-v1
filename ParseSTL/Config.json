@@ -1,7 +1,9 @@
 {
   "stl_folder": "StlFiles",
   "sliver_aspect_ratio": 20.0,
-  "micro_triangle_area_ratio": 1e-8,
-  "large_triangle_area_ratio": 0.25,
-  "max_incident_edges": 12
+  "sliver_min_angle_degrees": 5.0,
+  "micro_triangle_area_ratio": 1e-12,
+  "large_triangle_edge_to_diagonal_ratio": 0.25,
+  "max_incident_edges": 12,
+  "max_quality_issue_percentage": 0.0
 }

@@ -12,6 +12,8 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+const MAX_REPORTED_FINDINGS: usize = 100;
+
 pub fn run_menu(
     input: &mut dyn BufRead,
     output: &mut dyn Write,
@@ -93,10 +95,22 @@ fn read_line(input: &mut dyn BufRead) -> io::Result<Option<String>> {
 pub fn analyze_path(path: &Path, thresholds: Thresholds) -> Result<String, StlError> {
     let (format, mesh) = crate::processing::load_mesh(path)?;
     let analysis = analyze(&mesh, thresholds);
-    Ok(format_report(path, &format.to_string(), &mesh, &analysis))
+    Ok(format_report(
+        path,
+        &format.to_string(),
+        &mesh,
+        &analysis,
+        thresholds,
+    ))
 }
 
-fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) -> String {
+fn format_report(
+    path: &Path,
+    format: &str,
+    mesh: &Mesh,
+    analysis: &Analysis,
+    thresholds: Thresholds,
+) -> String {
     let mut output = format!(
         "\nFile: {}\nFormat: {format}\nTriangles/faces: {}\nUnique vertices: {}\n",
         path.display(),
@@ -110,54 +124,117 @@ fn format_report(path: &Path, format: &str, mesh: &Mesh, analysis: &Analysis) ->
         )),
         None => output.push_str("Bounding box: unavailable for an empty mesh\n"),
     }
-    if analysis.slivers.is_empty()
-        && analysis.micro_triangles.is_empty()
-        && analysis.large_triangles.is_empty()
-        && analysis.high_incident_vertices.is_empty()
-        && analysis.open_edges.is_empty()
-        && analysis.non_manifold_edges.is_empty()
-    {
+    if analysis.is_watertight {
+        output.push_str("Topology: watertight (PASS)\n");
+    } else {
+        output.push_str(&format!(
+            "Topology: not watertight (FAIL; {} open edges, {} non-manifold edges)\n",
+            analysis.open_edges.len(),
+            analysis.non_manifold_edges.len()
+        ));
+    }
+    let total_findings = analysis.slivers.len()
+        + analysis.micro_triangles.len()
+        + analysis.large_triangles.len()
+        + analysis.high_incident_vertices.len()
+        + analysis.open_edges.len()
+        + analysis.non_manifold_edges.len();
+    output.push_str(&format!(
+        "Quality summary: slivers {}/{} ({:.1}%), micro triangles {}/{} ({:.1}%), large triangles {}/{} ({:.1}%), high-incidence vertices {}/{} ({:.1}%); per-category limit {:.1}%\n",
+        analysis.slivers.len(),
+        mesh.triangles.len(),
+        percentage(analysis.slivers.len(), mesh.triangles.len()),
+        analysis.micro_triangles.len(),
+        mesh.triangles.len(),
+        percentage(analysis.micro_triangles.len(), mesh.triangles.len()),
+        analysis.large_triangles.len(),
+        mesh.triangles.len(),
+        percentage(analysis.large_triangles.len(), mesh.triangles.len()),
+        analysis.high_incident_vertices.len(),
+        mesh.vertices.len(),
+        percentage(analysis.high_incident_vertices.len(), mesh.vertices.len()),
+        f64::from(thresholds.max_quality_issue_percentage),
+    ));
+    let issue_percentages = [
+        percentage(analysis.slivers.len(), mesh.triangles.len()),
+        percentage(analysis.micro_triangles.len(), mesh.triangles.len()),
+        percentage(analysis.large_triangles.len(), mesh.triangles.len()),
+        percentage(analysis.high_incident_vertices.len(), mesh.vertices.len()),
+    ];
+    let within_quality_limits = issue_percentages
+        .into_iter()
+        .all(|value| value <= f64::from(thresholds.max_quality_issue_percentage));
+    let quality_passes = analysis.is_watertight && within_quality_limits;
+    output.push_str(&format!(
+        "Quality status: {} ({} findings{})\n",
+        if quality_passes { "PASS" } else { "FAIL" },
+        total_findings,
+        if quality_passes && total_findings > 0 {
+            " within configured limits"
+        } else {
+            ""
+        },
+    ));
+    if total_findings == 0 {
         output.push_str("Quality warnings: none\n");
         return output;
     }
-    output.push_str("Quality warnings:\n");
-    for item in &analysis.slivers {
+    output.push_str(&format!(
+        "Quality warnings: {total_findings} total; showing at most {MAX_REPORTED_FINDINGS} ({} omitted)\n",
+        total_findings.saturating_sub(MAX_REPORTED_FINDINGS)
+    ));
+    let mut remaining = MAX_REPORTED_FINDINGS;
+    for item in take_report_findings(&analysis.slivers, &mut remaining) {
         output.push_str(&format!(
             "- Sliver triangle #{}: area {:.6}, aspect ratio {:.3}\n",
             item.triangle, item.area, item.aspect_ratio
         ));
     }
-    for item in &analysis.micro_triangles {
+    for item in take_report_findings(&analysis.micro_triangles, &mut remaining) {
         output.push_str(&format!(
             "- Micro triangle #{}: area {:.6}, relative area {:.3e}\n",
             item.triangle, item.area, item.relative_area
         ));
     }
-    for item in &analysis.large_triangles {
+    for item in take_report_findings(&analysis.large_triangles, &mut remaining) {
         output.push_str(&format!(
-            "- Large triangle #{}: area {:.6}, relative area {:.3}\n",
-            item.triangle, item.area, item.relative_area
+            "- Large triangle #{}: longest edge {:.6}, edge/diagonal ratio {:.3}\n",
+            item.triangle, item.longest_edge, item.edge_to_diagonal_ratio
         ));
     }
-    for item in &analysis.high_incident_vertices {
+    for item in take_report_findings(&analysis.high_incident_vertices, &mut remaining) {
         output.push_str(&format!(
             "- Vertex #{} at ({:.6}, {:.6}, {:.6}) has {} incident edges\n",
             item.vertex, item.position.x, item.position.y, item.position.z, item.incident_edges
         ));
     }
-    for edge in &analysis.open_edges {
+    for edge in take_report_findings(&analysis.open_edges, &mut remaining) {
         output.push_str(&format!(
             "- Open edge ({}, {}): incident to {} face\n",
             edge.vertices[0], edge.vertices[1], edge.incident_faces
         ));
     }
-    for edge in &analysis.non_manifold_edges {
+    for edge in take_report_findings(&analysis.non_manifold_edges, &mut remaining) {
         output.push_str(&format!(
             "- Non-manifold edge ({}, {}): incident to {} faces\n",
             edge.vertices[0], edge.vertices[1], edge.incident_faces
         ));
     }
     output
+}
+
+fn take_report_findings<'a, T>(findings: &'a [T], remaining: &mut usize) -> &'a [T] {
+    let count = findings.len().min(*remaining);
+    *remaining -= count;
+    &findings[..count]
+}
+
+fn percentage(count: usize, total: usize) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        count as f64 * 100.0 / total as f64
+    }
 }
 
 pub fn generate_sample(

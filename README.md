@@ -30,6 +30,14 @@ cargo run --bin stl-analyzer
 
 The menu reports the STL format, face count, exact-coordinate unique vertices, bounding box, and mesh-quality findings. ASCII and binary STL are supported.
 
+Large-triangle findings use the longest-edge-to-bounding-box-diagonal ratio. The default threshold is `0.25`, configured by `large_triangle_edge_to_diagonal_ratio` in `ParseSTL/Config.json` and `StlGen/Config.json`.
+
+Analysis reports summarize finding percentages against the triangle or vertex count and show `Quality status: PASS` only when the mesh is watertight and the per-category percentages do not exceed `max_quality_issue_percentage`. This setting accepts values from `0` to `100` and defaults to `0` in both application configs, so findings fail the quality gate unless a nonzero allowance is configured.
+
+Micro triangles use the dimensionless `area / model diagonal²` metric with a default cutoff of `1e-12`. Zero-area triangles are always micro findings; micro classification takes precedence over sliver classification so the same tiny triangle is not reported in both categories.
+
+Generated shapes are validated for watertightness, their expected Euler characteristic, and positive signed volume.
+
 ## Generate models
 
 ```powershell

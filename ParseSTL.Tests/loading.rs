@@ -1,3 +1,6 @@
+use std::path::Path;
+use stl_analyzer::analysis::Thresholds;
+use stl_analyzer::app::analyze_path;
 use stl_analyzer::geometry::{Triangle, Vec3};
 use stl_analyzer::stl::{parse_bytes, write_ascii, write_binary, StlFormat};
 
@@ -53,4 +56,28 @@ fn rejects_non_finite_binary_coordinates() {
 
     let error = parse_bytes(&bytes).unwrap_err();
     assert!(error.to_string().contains("non-finite coordinate"));
+}
+
+#[test]
+fn analyzes_checked_in_stl_fixtures() {
+    for path in [
+        "ParseSTL/StlFiles/cube_ascii.stl",
+        "ParseSTL/StlFiles/cylinder_binary.stl",
+        "ParseSTL/StlFiles/plate_binary.stl",
+        "ParseSTL/StlFiles/sphere_ascii.stl",
+        "stl_files/cube.stl",
+        "stl_files/cylinder.stl",
+        "stl_files/dimensioned_cube.stl",
+        "stl_files/dimensioned_torus.stl",
+        "stl_files/sample_ascii.stl",
+        "stl_files/sample_binary.stl",
+        "stl_files/torus2.stl",
+    ] {
+        let report = analyze_path(Path::new(path), Thresholds::default())
+            .unwrap_or_else(|error| panic!("failed to analyze {path}: {error}"));
+        assert!(
+            report.contains("Quality summary:"),
+            "{path} did not include a quality summary"
+        );
+    }
 }

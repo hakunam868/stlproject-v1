@@ -40,18 +40,22 @@ impl BoundingBox {
 #[derive(Debug, Clone, Copy)]
 pub struct Thresholds {
     pub sliver_aspect_ratio: f32,
-    pub micro_triangle_area_ratio: f32,
-    pub large_triangle_area_ratio: f32,
+    pub sliver_min_angle_degrees: f32,
+    pub micro_triangle_area_ratio: f64,
+    pub large_triangle_edge_to_diagonal_ratio: f32,
     pub max_incident_edges: usize,
+    pub max_quality_issue_percentage: f32,
 }
 
 impl Default for Thresholds {
     fn default() -> Self {
         Self {
             sliver_aspect_ratio: 20.0,
-            micro_triangle_area_ratio: 1.0e-8,
-            large_triangle_area_ratio: 0.25,
+            sliver_min_angle_degrees: 5.0,
+            micro_triangle_area_ratio: 1.0e-12,
+            large_triangle_edge_to_diagonal_ratio: 0.25,
             max_incident_edges: 12,
+            max_quality_issue_percentage: 0.0,
         }
     }
 }
@@ -65,8 +69,8 @@ pub struct SliverTriangle {
 #[derive(Debug)]
 pub struct LargeTriangle {
     pub triangle: usize,
-    pub area: f64,
-    pub relative_area: f64,
+    pub longest_edge: f64,
+    pub edge_to_diagonal_ratio: f64,
 }
 #[derive(Debug)]
 pub struct MicroTriangle {
@@ -96,11 +100,13 @@ pub struct Analysis {
     pub high_incident_vertices: Vec<HighIncidentVertex>,
     pub open_edges: Vec<TopologyEdge>,
     pub non_manifold_edges: Vec<TopologyEdge>,
+    pub is_watertight: bool,
 }
 
 pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
     let bounds = BoundingBox::from_vertices(&mesh.vertices);
     let model_scale_squared = bounds.map_or(0.0, BoundingBox::diagonal_squared);
+    let model_diagonal = bounds.map_or(0.0, BoundingBox::diagonal);
     let mut slivers = Vec::new();
     let mut micro_triangles = Vec::new();
     let mut large_triangles = Vec::new();
@@ -119,39 +125,47 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         let longest_squared = distance_squared(vertices[0], vertices[1])
             .max(distance_squared(vertices[1], vertices[2]))
             .max(distance_squared(vertices[2], vertices[0]));
+        let longest_edge = longest_squared.sqrt();
         let aspect_ratio = if area > 0.0 {
             longest_squared / (2.0 * area)
         } else {
             f64::INFINITY
         };
-        if aspect_ratio >= f64::from(thresholds.sliver_aspect_ratio) {
+        let relative_area = if model_scale_squared > 0.0 {
+            area / model_scale_squared
+        } else {
+            0.0
+        };
+        let is_micro = area == 0.0
+            || (model_scale_squared > 0.0 && relative_area <= thresholds.micro_triangle_area_ratio);
+        let minimum_angle_degrees = minimum_angle_degrees(vertices);
+        let is_sliver = area > 0.0
+            && !is_micro
+            && (minimum_angle_degrees < f64::from(thresholds.sliver_min_angle_degrees)
+                || aspect_ratio > f64::from(thresholds.sliver_aspect_ratio));
+        if is_sliver {
             slivers.push(SliverTriangle {
                 triangle: index,
                 area,
                 aspect_ratio,
             });
         }
-        if area == 0.0
-            || (model_scale_squared > 0.0
-                && area / model_scale_squared <= f64::from(thresholds.micro_triangle_area_ratio))
-        {
+        if is_micro {
             micro_triangles.push(MicroTriangle {
                 triangle: index,
                 area,
-                relative_area: if model_scale_squared > 0.0 {
-                    area / model_scale_squared
-                } else {
-                    0.0
-                },
+                relative_area,
             });
         }
-        if model_scale_squared > 0.0
-            && area / model_scale_squared >= f64::from(thresholds.large_triangle_area_ratio)
-        {
+        if is_large_triangle(
+            longest_edge,
+            model_diagonal,
+            f64::from(thresholds.large_triangle_edge_to_diagonal_ratio),
+        ) {
             large_triangles.push(LargeTriangle {
                 triangle: index,
-                area,
-                relative_area: area / model_scale_squared,
+                longest_edge,
+                edge_to_diagonal_ratio: longest_edge / model_diagonal,
             });
         }
         let mut triangle_edges = [(usize::MAX, usize::MAX); 3];
@@ -206,6 +220,10 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
             })
         })
         .collect();
+    let is_watertight = !mesh.triangles.is_empty()
+        && open_edges.is_empty()
+        && non_manifold_edges.is_empty()
+        && !micro_triangles.iter().any(|triangle| triangle.area == 0.0);
     Analysis {
         bounds,
         slivers,
@@ -214,7 +232,12 @@ pub fn analyze(mesh: &Mesh, thresholds: Thresholds) -> Analysis {
         high_incident_vertices,
         open_edges,
         non_manifold_edges,
+        is_watertight,
     }
+}
+
+fn is_large_triangle(longest_edge: f64, model_diagonal: f64, threshold: f64) -> bool {
+    model_diagonal > 0.0 && longest_edge > threshold * model_diagonal
 }
 
 fn to_f64(vertex: Vec3) -> [f64; 3] {
@@ -244,4 +267,28 @@ fn length(vector: [f64; 3]) -> f64 {
 fn distance_squared(left: [f64; 3], right: [f64; 3]) -> f64 {
     let delta = subtract(left, right);
     delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]
+}
+
+fn minimum_angle_degrees(vertices: [[f64; 3]; 3]) -> f64 {
+    let [a, b, c] = vertices;
+    angle_degrees(subtract(b, a), subtract(c, a))
+        .min(angle_degrees(subtract(a, b), subtract(c, b)))
+        .min(angle_degrees(subtract(a, c), subtract(b, c)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_large_triangle;
+
+    #[test]
+    fn large_triangle_threshold_is_strict_at_boundary() {
+        assert!(!is_large_triangle(1.0, 4.0, 0.25));
+        assert!(is_large_triangle(1.000_001, 4.0, 0.25));
+    }
+}
+
+fn angle_degrees(left: [f64; 3], right: [f64; 3]) -> f64 {
+    let cross_magnitude = length(cross(left, right));
+    let dot_product = left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+    cross_magnitude.atan2(dot_product).to_degrees()
 }
