@@ -96,15 +96,6 @@
 			function isBinary( data ) {
 
 				const reader = new DataView( data );
-				const face_size = 32 / 8 * 3 + 32 / 8 * 3 * 3 + 16 / 8;
-				const n_faces = reader.getUint32( 80, true );
-				const expect = 80 + 32 / 8 + n_faces * face_size;
-				if ( expect === reader.byteLength ) {
-
-					return true;
-
-				}
-
 				// An ASCII STL data must begin with 'solid ' as the first six bytes.
 				// However, ASCII STLs lacking the SPACE after the 'd' are known to be
 				// plentiful.  So, check the first 5 bytes for 'solid'.
@@ -116,15 +107,45 @@
 				// US-ASCII ordinal values for 's', 'o', 'l', 'i', 'd'
 
 				const solid = [ 115, 111, 108, 105, 100 ];
+				let startsWithSolid = false;
 				for ( let off = 0; off < 5; off ++ ) {
 
 					// If "solid" text is matched to the current offset, declare it to be an ASCII STL.
 
-					if ( matchDataViewAt( solid, reader, off ) ) return false;
+					if ( matchDataViewAt( solid, reader, off ) ) {
+
+						startsWithSolid = true;
+						break;
+
+					}
 
 				}
 
-				// Couldn't find "solid" text at the beginning; it is binary STL.
+				if ( reader.byteLength === 0 ) {
+
+					throw new Error( 'STL file is empty.' );
+
+				}
+
+				if ( reader.byteLength < 84 ) {
+
+					if ( startsWithSolid ) return false;
+					throw new Error( 'Invalid or truncated STL: expected an ASCII solid header or a complete binary header.' );
+
+				}
+
+				const faceSize = 50;
+				const faceCount = reader.getUint32( 80, true );
+				const expectedLength = 84 + faceCount * faceSize;
+				if ( expectedLength === reader.byteLength ) return true;
+
+				if ( startsWithSolid ) return false;
+
+				if ( expectedLength > reader.byteLength ) {
+
+					throw new Error( 'Truncated binary STL: expected ' + expectedLength + ' bytes, found ' + reader.byteLength + '.' );
+
+				}
 
 				return true;
 
@@ -133,6 +154,7 @@
 			function matchDataViewAt( query, reader, offset ) {
 
 				// Check if each byte in query matches the corresponding byte from the current offset
+				if ( offset + query.length > reader.byteLength ) return false;
 
 				for ( let i = 0, il = query.length; i < il; i ++ ) {
 
@@ -261,6 +283,9 @@
 
 					startVertex = endVertex;
 					const solid = result[ 0 ];
+					const expectedFaceCount = ( solid.match( /^\s*facet\b/gm ) || [] ).length;
+					let parsedFaceCount = 0;
+					patternFace.lastIndex = 0;
 					while ( ( result = patternFace.exec( solid ) ) !== null ) {
 
 						let vertexCountPerFace = 0;
@@ -288,7 +313,7 @@
 
 						if ( normalCountPerFace !== 1 ) {
 
-							console.error( 'THREE.STLLoader: Something isn\'t right with the normal of face number ' + faceCounter );
+							throw new Error( 'Malformed ASCII STL: facet ' + faceCounter + ' must contain exactly one normal.' );
 
 						}
 
@@ -296,11 +321,18 @@
 
 						if ( vertexCountPerFace !== 3 ) {
 
-							console.error( 'THREE.STLLoader: Something isn\'t right with the vertices of face number ' + faceCounter );
+							throw new Error( 'Malformed ASCII STL: facet ' + faceCounter + ' must contain exactly three vertices.' );
 
 						}
 
 						faceCounter ++;
+						parsedFaceCount ++;
+
+					}
+
+					if ( parsedFaceCount !== expectedFaceCount ) {
+
+						throw new Error( 'Malformed ASCII STL: one or more facets are incomplete.' );
 
 					}
 
@@ -350,10 +382,61 @@
 
 			}
 
+			function validateGeometry( geometry ) {
+
+				const position = geometry.getAttribute( 'position' );
+				if ( ! position || position.count === 0 ) {
+
+					throw new Error( 'STL file contains no triangles.' );
+
+				}
+
+				if ( position.count % 3 !== 0 ) {
+
+					throw new Error( 'Malformed STL: triangle vertex count is incomplete.' );
+
+				}
+
+				for ( let index = 0; index < position.array.length; index ++ ) {
+
+					if ( ! Number.isFinite( position.array[ index ] ) ) {
+
+						throw new Error( 'STL file contains a non-finite vertex coordinate.' );
+
+					}
+
+				}
+
+				const normal = geometry.getAttribute( 'normal' );
+				if ( normal && normal.count !== position.count ) {
+
+					throw new Error( 'Malformed STL: vertex normals do not match the vertex count.' );
+
+				}
+
+				if ( normal ) {
+
+					for ( let index = 0; index < normal.array.length; index ++ ) {
+
+						if ( ! Number.isFinite( normal.array[ index ] ) ) {
+
+							throw new Error( 'STL file contains a non-finite facet normal.' );
+
+						}
+
+					}
+
+				}
+
+				return geometry;
+
+			}
+
 			// start
 
 			const binData = ensureBinary( data );
-			return isBinary( binData ) ? parseBinary( binData ) : parseASCII( ensureString( data ) );
+			const geometry = isBinary( binData ) ? parseBinary( binData ) : parseASCII( ensureString( data ) );
+			return validateGeometry( geometry );
 
 		}
 

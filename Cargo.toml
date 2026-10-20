@@ -42,10 +42,10 @@ path = "ParseSTL.Tests/loading.rs"
 name = "mesh_analysis"
 path = "ParseSTL.Tests/mesh_analysis.rs"
 
+[[test]]
+name = "viewer_dataset"
+path = "ParseSTL.Tests/viewer_dataset.rs"
+
 [[example]]
 name = "benchmark"
 path = "StlGen/Examples/benchmark.rs"
-
-[[example]]
-name = "make_sample"
-path = "StlGen/Examples/make_sample.rs"

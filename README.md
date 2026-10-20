@@ -38,6 +38,20 @@ Micro triangles use the dimensionless `area / model diagonal²` metric with a de
 
 Generated shapes are validated for watertightness, their expected Euler characteristic, and positive signed volume.
 
+## View STL files
+
+The standalone ParseSTL viewer is a .NET 10 Blazor WebAssembly application:
+
+```powershell
+dotnet run --project ParseSTL.Viewer
+```
+
+Open `http://localhost:5317`, choose **Open**, and select an STL file. The viewer also supports other CAD formats; see [ParseSTL.Viewer/README.md](ParseSTL.Viewer/README.md) for its controls and details.
+
+## STL viewer test data
+
+The categorized test corpus and manual viewer smoke-test instructions are in [test_data/stl/README.md](test_data/stl/README.md). It includes synthetic parser edge-case fixtures and separately licensed downloadable real-world models, with provenance documented there.
+
 ## Generate models
 
 ```powershell
@@ -60,6 +74,7 @@ ParseSTL/
   Parsing/        ASCII and binary STL parsing
   Processing/     parsed-model loading and vertex indexing
   UI/             analyzer menu, commands, and reports
+ParseSTL.Viewer/  standalone Blazor WebAssembly 3D viewer
 StlGen/
   Configuration/  generator configuration
   Geometry/       shared geometric primitives

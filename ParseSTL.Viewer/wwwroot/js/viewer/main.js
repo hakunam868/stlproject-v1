@@ -17,7 +17,7 @@ function loadFileImport(files) {
         const fileExtension = file.name.split(".").pop().toLowerCase();
         switch (fileExtension) {
             case "stl":
-                handleSTLFile(file);
+                handleSTLFile(file, false);
                 break;
             case "3mf":
                 handle3MFFile(file);
@@ -212,29 +212,83 @@ var leftViewBtn = document.getElementById("leftViewBtn");
 var backViewBtn = document.getElementById("backViewBtn");
 var bottomViewBtn = document.getElementById("bottomViewBtn");
 
+function frameBoundingBox(bounds, viewDirection) {
+    if (bounds.isEmpty()) return false;
+
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    const halfSize = size.multiplyScalar(0.5);
+    const direction = viewDirection.clone().normalize();
+    const forward = direction.clone().negate();
+    let upSeed = renderer.camera.up.clone().normalize();
+    let right = new THREE.Vector3().crossVectors(forward, upSeed);
+
+    if (right.lengthSq() < 1e-12) {
+        upSeed.set(0, 0, 1);
+        if (Math.abs(forward.dot(upSeed)) > 0.999) upSeed.set(0, 1, 0);
+        right.crossVectors(forward, upSeed);
+    }
+
+    right.normalize();
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    const halfWidth =
+        Math.abs(right.x) * halfSize.x +
+        Math.abs(right.y) * halfSize.y +
+        Math.abs(right.z) * halfSize.z;
+    const halfHeight =
+        Math.abs(up.x) * halfSize.x +
+        Math.abs(up.y) * halfSize.y +
+        Math.abs(up.z) * halfSize.z;
+    const halfDepth =
+        Math.abs(direction.x) * halfSize.x +
+        Math.abs(direction.y) * halfSize.y +
+        Math.abs(direction.z) * halfSize.z;
+    const verticalFov = (renderer.camera.fov * Math.PI) / 180;
+    const aspect = renderer.camera.aspect || 1;
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+    const distance =
+        (halfDepth +
+            Math.max(
+                halfHeight / Math.tan(verticalFov / 2),
+                halfWidth / Math.tan(horizontalFov / 2)
+            )) *
+        1.1;
+    const fitDistance = distance || 1;
+
+    renderer.camera.up.copy(up);
+    renderer.camera.position
+        .copy(center)
+        .addScaledVector(direction, fitDistance);
+    renderer.camera.zoom = 1;
+    renderer.camera.near = Math.max(
+        (fitDistance - halfDepth) * 0.01,
+        fitDistance * 1e-6,
+        Number.MIN_VALUE
+    );
+    renderer.camera.far = Math.max(
+        fitDistance + halfDepth + size.length(),
+        renderer.camera.near * 10
+    );
+    renderer.camera.lookAt(center);
+    renderer.camera.updateProjectionMatrix();
+    renderer.orbit_controls.target.copy(center);
+    renderer.orbit_controls.update();
+    return true;
+}
+
+function frameView() {
+    const bounds = new THREE.Box3().setFromObject(renderer.main_group);
+    const direction = renderer.camera.position
+        .clone()
+        .sub(renderer.orbit_controls.target);
+
+    if (direction.lengthSq() === 0) direction.set(1, 1, 1);
+    return frameBoundingBox(bounds, direction);
+}
+
 function setView(direction) {
-    var combinedBoundingBox = new THREE.Box3();
-
-    combinedBoundingBox.setFromObject(renderer.main_group);
-    var boundingCenter = new THREE.Vector3();
-    combinedBoundingBox.getCenter(boundingCenter);
-
-    var diagonalLength = combinedBoundingBox.max.distanceTo(
-        combinedBoundingBox.min
-    );
-    renderer.camera.position.set(
-        boundingCenter.x - diagonalLength * direction.x,
-        boundingCenter.y - diagonalLength * direction.y,
-        boundingCenter.z - diagonalLength * direction.z
-    );
-
-    renderer.camera.zoom = 1; // Reset zoom
-    renderer.camera.lookAt(boundingCenter);
-    renderer.orbit_controls.target.set(
-        boundingCenter.x,
-        boundingCenter.y,
-        boundingCenter.z
-    );
+    const bounds = new THREE.Box3().setFromObject(renderer.main_group);
+    frameBoundingBox(bounds, direction.clone().negate());
 }
 
 // Function to handle right view

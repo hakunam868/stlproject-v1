@@ -1,4 +1,17 @@
 var default_material = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
+var toastTimeout;
+
+function showToast(message, isError = false) {
+    toast.textContent = message;
+    toast.classList.toggle("error", isError);
+    toast.style.display = "block";
+    window.clearTimeout(toastTimeout);
+    toastTimeout = window.setTimeout(() => {
+        toast.style.display = "none";
+        toast.classList.remove("error");
+    }, isError ? 6000 : 3000);
+}
+
 // Function to show the loader
 function showLoader() {
     document.getElementById("loader").classList.remove("hidden");
@@ -13,18 +26,32 @@ function getFileExtension(filename) {
     return filename.split(".").pop().toLowerCase();
 }
 
-async function handleSTLFile(fileData) {
+async function handleSTLFile(fileData, fitToView = true) {
     const reader = new FileReader();
     reader.onload = () => {
-        handleSTLFile_(reader.result);
+        handleSTLFile_(reader.result, fileData.name, fitToView);
+    };
+    reader.onerror = () => {
+        showToast(`Could not read ${fileData.name}: ${reader.error?.message || "file read failed."}`, true);
+    };
+    reader.onabort = () => {
+        showToast(`Reading ${fileData.name} was cancelled.`, true);
     };
     reader.readAsArrayBuffer(fileData);
 }
 
-function handleSTLFile_(byteData) {
-    console.log("handleSTLFile",byteData)
-    let stl_part = new STLPart(byteData);
-    renderer.main_group.add(stl_part.mesh);
+function handleSTLFile_(byteData, fileName = "STL file", fitToView = true) {
+    try {
+        const stlPart = new STLPart(byteData);
+        renderer.main_group.add(stlPart.mesh);
+        if (fitToView) frameView();
+        showToast(`Loaded ${fileName}.`);
+        return true;
+    } catch (error) {
+        console.error(`Could not load ${fileName}:`, error);
+        showToast(`Could not load ${fileName}: ${error.message || error}`, true);
+        return false;
+    }
 }
 
 async function handle3MFFile_(byteData) {
@@ -47,11 +74,7 @@ var occt;
 console.log("loading started from occt wasm");
 occtimportjs().then(async (occt_) => {
     console.log("buffer received from c#");
-    toast.textContent = "Ready to load STEP file.";
-    toast.style.display = "block";
-    setTimeout(function () {
-        toast.style.display = "none";
-    }, 3000);
+    showToast("Ready to load STEP file.");
 
     occt = occt_;
     loadfromDAM();
@@ -109,12 +132,7 @@ function handleSTEPFile_(fileData, format) {
 async function handleSTEPFile(fileData, format) {
     if (occt == undefined) {
         console.log("Please wait... Occt not initialized yet");
-        toast.textContent = "Please wait... Initializing";
-
-        toast.style.display = "block";
-        setTimeout(function () {
-            toast.style.display = "none";
-        }, 4000); // Hide the toast after 4 seconds
+        showToast("Please wait... Initializing");
         return;
     }
 
