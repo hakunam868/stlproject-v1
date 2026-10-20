@@ -1,0 +1,170 @@
+solid cone
+  facet normal 0.8697965 0.43489826 0.2330613
+    outer loop
+      vertex 0 1 0
+      vertex 0.8660254 -1 0.5
+      vertex 1 -1 0
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 1 -1 0
+      vertex 0.8660254 -1 0.5
+    endloop
+  endfacet
+  facet normal 0.6367353 0.43489826 0.63673526
+    outer loop
+      vertex 0 1 0
+      vertex 0.49999997 -1 0.86602545
+      vertex 0.8660254 -1 0.5
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 0.8660254 -1 0.5
+      vertex 0.49999997 -1 0.86602545
+    endloop
+  endfacet
+  facet normal 0.2330612 0.43489826 0.8697965
+    outer loop
+      vertex 0 1 0
+      vertex -0.00000004371139 -1 1
+      vertex 0.49999997 -1 0.86602545
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 0.49999997 -1 0.86602545
+      vertex -0.00000004371139 -1 1
+    endloop
+  endfacet
+  facet normal -0.2330613 0.43489826 0.8697965
+    outer loop
+      vertex 0 1 0
+      vertex -0.50000006 -1 0.8660254
+      vertex -0.00000004371139 -1 1
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex -0.00000004371139 -1 1
+      vertex -0.50000006 -1 0.8660254
+    endloop
+  endfacet
+  facet normal -0.6367353 0.4348982 0.6367351
+    outer loop
+      vertex 0 1 0
+      vertex -0.8660255 -1 0.49999982
+      vertex -0.50000006 -1 0.8660254
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex -0.50000006 -1 0.8660254
+      vertex -0.8660255 -1 0.49999982
+    endloop
+  endfacet
+  facet normal -0.8697965 0.43489826 0.23306113
+    outer loop
+      vertex 0 1 0
+      vertex -1 -1 -0.00000008742278
+      vertex -0.8660255 -1 0.49999982
+    endloop
+  endfacet
+  facet normal -0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex -0.8660255 -1 0.49999982
+      vertex -1 -1 -0.00000008742278
+    endloop
+  endfacet
+  facet normal -0.8697964 0.4348982 -0.23306143
+    outer loop
+      vertex 0 1 0
+      vertex -0.86602527 -1 -0.5000002
+      vertex -1 -1 -0.00000008742278
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex -1 -1 -0.00000008742278
+      vertex -0.86602527 -1 -0.5000002
+    endloop
+  endfacet
+  facet normal -0.63673514 0.43489826 -0.6367353
+    outer loop
+      vertex 0 1 0
+      vertex -0.4999999 -1 -0.86602545
+      vertex -0.86602527 -1 -0.5000002
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex -0.86602527 -1 -0.5000002
+      vertex -0.4999999 -1 -0.86602545
+    endloop
+  endfacet
+  facet normal -0.23306124 0.43489826 -0.8697965
+    outer loop
+      vertex 0 1 0
+      vertex 0.000000011924881 -1 -1
+      vertex -0.4999999 -1 -0.86602545
+    endloop
+  endfacet
+  facet normal 0 -1 -0
+    outer loop
+      vertex 0 -1 0
+      vertex -0.4999999 -1 -0.86602545
+      vertex 0.000000011924881 -1 -1
+    endloop
+  endfacet
+  facet normal 0.23306143 0.43489823 -0.86979645
+    outer loop
+      vertex 0 1 0
+      vertex 0.50000036 -1 -0.8660252
+      vertex 0.000000011924881 -1 -1
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 0.000000011924881 -1 -1
+      vertex 0.50000036 -1 -0.8660252
+    endloop
+  endfacet
+  facet normal 0.63673544 0.4348983 -0.636735
+    outer loop
+      vertex 0 1 0
+      vertex 0.86602557 -1 -0.49999976
+      vertex 0.50000036 -1 -0.8660252
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 0.50000036 -1 -0.8660252
+      vertex 0.86602557 -1 -0.49999976
+    endloop
+  endfacet
+  facet normal 0.8697965 0.43489826 -0.2330611
+    outer loop
+      vertex 0 1 0
+      vertex 1 -1 0
+      vertex 0.86602557 -1 -0.49999976
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 -1 0
+      vertex 0.86602557 -1 -0.49999976
+      vertex 1 -1 0
+    endloop
+  endfacet
+endsolid cone

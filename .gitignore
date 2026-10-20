@@ -3,3 +3,6 @@
 **/bin/
 **/obj/
 *.stl
+!test_data/
+!test_data/stl/
+!test_data/stl/**/*.stl

@@ -1,0 +1,172 @@
+﻿@page "/"
+@page "/viewer"
+@inject IJSRuntime JSRuntime
+
+@{
+    var baseUrl = BaseUrlService.GetBaseUrl(); // Dynamically getting the base URL
+}
+
+<script defer>
+    unloadResource("css/soft-ui-dashboard.css")
+    loadResource("css/viewer/viewer.css", true);
+    loadResource("js/viewer/index.min.js");
+    loadResourcesSequentially([
+        { filePath: "js/viewer/three.min.js" },
+        { filePath: "js/viewer/orbitControls.js" },
+        { filePath: "js/viewer/transformControls.js", reload: true },
+        { filePath: "js/viewer/STLLoader.js", reload: true },
+        { filePath: "js/viewer/3MFLoader.js", reload: true },
+        { filePath: "js/viewer/occt-import-js.js", reload: true },
+        { filePath: "js/viewer/csInclusive.js", reload: true },
+        { filePath: "js/viewer/meshUtils.js", reload: true },
+        { filePath: "js/viewer/viewerTypes.js" },
+        { filePath: "js/viewer/renderer.js",reload:true },
+        { filePath: "js/viewer/fileHandlers.js", reload: true },
+        { filePath: "js/viewer/contextMenu.js",reload:true },
+        { filePath: "js/viewer/assembly.js",reload:true },
+        { filePath: "js/viewer/animate.js", reload: true },
+        { filePath: "js/viewer/main.js", reload: true }
+    ]);
+
+</script>
+
+<div id="toastMessage" class="toast" role="status" aria-live="polite"></div>
+<div class="assemblies" id="assemblies"></div>
+<div class="p-2">
+    <div class="navbar_left">
+        <input type="file" id="fileInput" style="display: none" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
+        <button id="loadFileBtn" class="capture_btn" title="Open">
+            <img src="@($"{baseUrl}images/folder_open.svg")" alt="" height="30" width="30" />
+        </button>
+        <input type="file" id="fileImport" style="display: none" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
+        <button id="loadFileImport" class="capture_btn" title="Import">
+            <img src="@($"{baseUrl}images/cloud_download.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="capture" class="capture_btn" title="Capture">
+            <img src="@($"{baseUrl}images/camera.svg")" alt="" height="30" width="30" />
+        </button>
+        <div class="toggle_selection_mode">
+            <label class="toggle-label">
+                <input type="radio" name="mode" value="assembly" />
+                Assembly
+            </label>
+            <label class="toggle-label">
+                <input type="radio" name="mode" value="shell" />
+                Part
+            </label>
+
+            <label class="toggle-label">
+                <input type="radio" name="mode" value="surface" checked />
+                Surface
+            </label>
+        </div>
+    </div>
+    <!-- //center -->
+    <div id="loader" class="loader hidden"></div>
+
+    <div class="content-container">
+        <div class="config">
+            <div id="ContextMenu">
+                <div id="shellConfig">
+                    <h5 class="grab_menu">:::</h5>
+                    <div class="menu-item hover-effect">
+                        <input type="color"
+                               class="icon-wrapper mr"
+                               name="color"
+                               id="color" />
+                        <p>Color</p>
+                    </div>
+                    <div class="menu-item hover-effect" id="isolatePart">
+                        <img src="@($"{baseUrl}images/eyeshow.png")"
+                             class="icon-wrapper mr" />
+                        <p id="isolatePartText">Isolate part</p>
+                    </div>
+                    <hr />
+                    <div>
+                        <div class="menu-item">
+                            <p>Opacity</p>
+                        </div>
+                        <input type="range"
+                               name="opacity"
+                               id="opacity"
+                               min="0"
+                               max="100"
+                               value="44"
+                               class="slider" />
+                    </div>
+                    <hr />
+                    <div class="menu-item">
+                        <input type="text"
+                               name="annotate"
+                               id="annotate"
+                               placeholder="Comment"
+                               autocomplete="off"
+                               class="Comment" />
+                    </div>
+                </div>
+            </div>
+            <style>
+                .dropSections {
+                    display: flex;
+                    flex-direction: row;
+                    border: 20px rgba(175, 175, 175, 0.308) solid;
+                    position: fixed;
+                    left: 50%;
+                    top: 50%;
+                    transform: translateX(-50%) translateY(-50%);
+                    display: none;
+                    pointer-events: none;
+                }
+
+                .drop {
+                    background-color: rgba(220, 220, 220, 0.356);
+                    padding-inline: 40px;
+                    padding-block: 60px;
+                    white-space: nowrap;
+                }
+            </style>
+            <div class="dropSections">
+                <div class="cad_drop drop">Drop CAD here</div>
+                <div class="scan_drop drop">Drop Scan here</div>
+            </div>
+        </div>
+
+        <div class="viewer"></div>
+    </div>
+
+    <!-- Right Navbar -->
+    <div class="navbar_right">
+        <button id="topViewBtn" class="nav_btn" title="Top View">
+            <img src="@($"{baseUrl}images/top_view.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="frontViewBtn" class="nav_btn" title="Front View">
+            <img src="@($"{baseUrl}images/front_view.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="rightViewBtn" class="nav_btn" title="Right View">
+            <img src="@($"{baseUrl}images/right_view.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="leftViewBtn" class="nav_btn" title="Left View">
+            <img src="@($"{baseUrl}images/left_view.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="backViewBtn" class="nav_btn" title="Back View">
+            <img src="@($"{baseUrl}images/back_view.svg")" alt="" height="30" width="30" />
+        </button>
+        <button id="bottomViewBtn" class="nav_btn" title="Bottom View">
+            <img src="@($"{baseUrl}images/bottom_view.svg")" alt="" height="30" width="30" />
+        </button>
+    </div>
+</div>
+
+@code {
+    public ViewerViewModel ViewModel { get; } = new();
+    private DotNetObjectReference<ViewerViewModel>? dotNetRef;
+    protected async override Task OnInitializedAsync()
+    {
+        dotNetRef = DotNetObjectReference.Create(this.ViewModel);
+
+        var methodNames = JSInvokableMethodHelper.GetJSInvokableMethods<ViewerViewModel>();
+
+        // Call the JS function to initialize methods
+        await JSRuntime.InvokeVoidAsync("initializeDotNetHelper", dotNetRef, methodNames, "viewerData");
+    }
+}
