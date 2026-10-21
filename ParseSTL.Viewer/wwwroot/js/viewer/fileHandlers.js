@@ -54,16 +54,49 @@ function handleSTLFile_(byteData, fileName = "STL file", fitToView = true) {
     }
 }
 
-async function handle3MFFile_(byteData) {
-    console.log("handle3MFFile", byteData)
-    let part_3mf = new Part3MF(byteData);
-    renderer.main_group.add(part_3mf.mesh);
+function handle3MFFile_(byteData, fileName = "3MF file") {
+    try {
+        const part_3mf = new Part3MF(byteData);
+        let hasRenderableMesh = false;
+        part_3mf.mesh.traverse((object) => {
+            if (!object.isMesh) return;
+
+            const position = object.geometry?.getAttribute("position");
+            if (!position || position.count === 0) return;
+
+            hasRenderableMesh = true;
+            for (const coordinate of position.array) {
+                if (!Number.isFinite(coordinate)) {
+                    throw new Error("3MF file contains a non-finite vertex coordinate.");
+                }
+            }
+        });
+
+        if (!hasRenderableMesh) {
+            throw new Error("3MF file contains no renderable mesh.");
+        }
+
+        renderer.main_group.add(part_3mf.mesh);
+        showToast(`Loaded ${fileName}.`);
+        return true;
+    } catch (error) {
+        console.error(`Could not load ${fileName}:`, error);
+        const message = error instanceof Error ? error.message : String(error);
+        showToast(`Could not load ${fileName}: ${message}`, true);
+        return false;
+    }
 }
 
 async function handle3MFFile(fileData) {
     const reader = new FileReader();
     reader.onload = () => {
-        handle3MFFile_(reader.result);
+        handle3MFFile_(reader.result, fileData.name);
+    };
+    reader.onerror = () => {
+        showToast(`Could not read ${fileData.name}: ${reader.error?.message || "file read failed."}`, true);
+    };
+    reader.onabort = () => {
+        showToast(`Reading ${fileData.name} was cancelled.`, true);
     };
     reader.readAsArrayBuffer(fileData);
 }

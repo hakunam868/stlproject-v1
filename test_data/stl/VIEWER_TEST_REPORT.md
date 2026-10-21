@@ -15,6 +15,39 @@
 | V-04 | Medium | View buttons and very small/large models | Camera clipping planes were fixed at a range unsuitable for models at `1e-12` and `1e12` scales. | Fixed: camera distance and near/far planes are fitted to the model, projection, and view direction. |
 | V-05 | Low | Initial camera framing | Newly opened models were not automatically framed. | Fixed: successful STL Open loads frame the complete model; Import retains the current camera view. |
 
+## Additional viewer review findings and status
+
+The following potential issues were identified by code inspection after the
+STL corpus run. Findings not yet reproduced in a browser are explicitly marked
+as pending verification.
+
+| ID | Severity | Area | Potential issue | Status |
+|---|---|---|---|---|
+| R-01 | High | 3MF loading | Invalid or incomplete 3MF input may fail without visible feedback. The FileReader path has no error/abort handlers, and errors from parsing in its `onload` callback may be unhandled. | Fixed in handler: parse failures, read errors, and aborts now produce visible errors; simulated failure-path checks passed, browser verification pending |
+| R-02 | Medium | STEP/IGES/BREP loading | A parsing or model-construction error may leave the loading indicator visible and provide no handled error message. | Needs reproduction |
+| R-03 | Medium | Open behavior | Opening malformed or unsupported content may clear the currently displayed model before the new file has loaded successfully. | Needs reproduction |
+| R-04 | Medium | 3MF and STEP camera framing | These formats may not be automatically framed after Open, unlike STL. Models away from the origin or at unusual scales may initially be off-screen. | Needs reproduction |
+
+### Suggested follow-up regression cases
+
+1. Open a non-ZIP file renamed to `.3mf`, then a ZIP missing its 3MF model part.
+   Check for visible errors, no unhandled page errors, and no stuck loader.
+2. Open truncated or otherwise invalid STEP, IGES, and BREP files. Check that
+   the loader disappears after failure and a visible error is shown.
+3. Load a valid model, then attempt to Open malformed and unsupported files.
+   Verify whether the existing model should remain visible after the failed
+   Open, and assert the intended behavior.
+4. Start opening a large file and quickly select a different, small file.
+   Verify that the final scene contains only the latest selection and that a
+   late completion from the earlier read cannot add a stale model.
+5. Open valid 3MF and STEP models translated far from the origin and with
+   very small and very large coordinates. Verify the full model is visible
+   immediately after Open.
+6. Select the same file twice in a row through each file input. Verify that
+   both selections trigger loading.
+7. Exercise FileReader error and abort paths for STL, 3MF, and STEP files.
+   Verify accessible feedback and correct loader state.
+
 Valid mesh-quality defects (degenerate, duplicate, inconsistent-normal, and
 non-manifold examples) loaded successfully in the baseline. They must remain
 renderable; parser rejection should be limited to structurally invalid STL or
