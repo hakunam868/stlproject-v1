@@ -1,0 +1,9 @@
+solid infinity
+ facet normal 0 0 1
+  outer loop
+   vertex 0 0 0
+   vertex Infinity 0 0
+   vertex 0 1 0
+  endloop
+ endfacet
+endsolid infinity
