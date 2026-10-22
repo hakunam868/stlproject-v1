@@ -9,6 +9,7 @@ The Rust project follows the same top-level organization:
 | `ParseSTL/` | STL parsing, mesh processing, analysis, configuration, and console UI |
 | `StlGen/` | Shape generation, STL output, benchmark service, and generator UI |
 | `ParseSTL.Tests/` | Rust integration tests for parsing, analysis, and generation |
+| `ParseSTL.Viewer/` | Standalone 3D viewer (STL/3MF/STEP/IGES/BREP), .NET 10 Blazor WebAssembly — see its README |
 
 ## Build and test
 
