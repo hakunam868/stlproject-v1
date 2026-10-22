@@ -69,7 +69,11 @@ pub fn parse_bytes(bytes: &[u8]) -> Result<ParsedStl, StlError> {
 pub fn detect_format(bytes: &[u8]) -> Result<StlFormat, StlError> {
     if bytes.len() >= 84 {
         let count = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
-        if count.checked_mul(50).and_then(|size| size.checked_add(84)) == Some(bytes.len()) {
+        if count
+            .checked_mul(50)
+            .and_then(|size| size.checked_add(84))
+            .is_some_and(|size| size <= bytes.len())
+        {
             return Ok(StlFormat::Binary);
         }
     }
@@ -93,11 +97,13 @@ fn parse_binary(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
         .checked_mul(50)
         .and_then(|size| size.checked_add(84))
         .ok_or_else(|| StlError::Invalid("binary triangle count overflows file size".into()))?;
-    if expected != bytes.len() {
+    if expected > bytes.len() {
         return Err(StlError::Invalid(
-            "binary STL length does not match triangle count".into(),
+            "binary STL is shorter than its declared triangle count".into(),
         ));
     }
+    // Trailing bytes after the declared triangles are tolerated: some exporters
+    // append padding or metadata. Only the declared 84 + count * 50 bytes are read.
     let mut triangles = Vec::with_capacity(count);
     for number in 0..count {
         let offset = 84 + number * 50;
