@@ -135,31 +135,42 @@ function loadfromDAM() {
 }
 
 function handleSTEPFile_(fileData, format) {
-    console.log("handleSTEPFile", fileData)
-    showLoader(); // Show the loader before starting the processing
+    showLoader();
 
-    let result;
-    switch (format) {
-        case "step":
-        case "stp":
-            result = occt.ReadStepFile(new Uint8Array(fileData), null);
-            break;
-        case "iges":
-        case "igs":
-            result = occt.ReadIgesFile(new Uint8Array(fileData), null);
+    try {
+        let result;
+        switch (format) {
+            case "step":
+            case "stp":
+                result = occt.ReadStepFile(new Uint8Array(fileData), null);
+                break;
+            case "iges":
+            case "igs":
+                result = occt.ReadIgesFile(new Uint8Array(fileData), null);
+                break;
+            case "brep":
+            case "brp":
+                result = occt.ReadBrepFile(new Uint8Array(fileData), null);
+                break;
+            default:
+                throw new Error(`Unsupported CAD format: ${format}`);
+        }
 
-            break;
-        case "brep":
-        case "brp":
-            result = occt.ReadBrepFile(new Uint8Array(fileData), null);
-            break;
-        default:
-            break;
+        if (!result || !Array.isArray(result.meshes) || result.meshes.length === 0 || !result.root?.children?.length) {
+            throw new Error("The file did not contain a valid CAD model.");
+        }
+
+        const new_part = new SolidPart(result.meshes, result.root);
+        renderer.main_group.add(new_part.mesh);
+        showToast(`Loaded ${format.toUpperCase()} file.`);
+        return true;
+    } catch (error) {
+        console.error(`Could not load ${format.toUpperCase()} file:`, error);
+        showToast(`Could not load ${format.toUpperCase()} file: ${error.message || error}`, true);
+        return false;
+    } finally {
+        hideLoader();
     }
-    console.log(result);
-    let new_part = new SolidPart(result.meshes, result.root);
-    renderer.main_group.add(new_part.mesh);
-    hideLoader();
 }
 
 async function handleSTEPFile(fileData, format) {
@@ -171,7 +182,20 @@ async function handleSTEPFile(fileData, format) {
 
     const reader = new FileReader();
     reader.onload = () => {
-        handleSTEPFile_(reader.result, format);
+        try {
+            handleSTEPFile_(reader.result, format);
+        } catch (error) {
+            // Keep unexpected callback failures visible and avoid a stuck loader.
+            console.error(`Could not load ${fileData.name}:`, error);
+            showToast(`Could not load ${fileData.name}: ${error.message || error}`, true);
+            hideLoader();
+        }
+    };
+    reader.onerror = () => {
+        showToast(`Could not read ${fileData.name}: ${reader.error?.message || "file read failed."}`, true);
+    };
+    reader.onabort = () => {
+        showToast(`Reading ${fileData.name} was cancelled.`, true);
     };
     reader.readAsArrayBuffer(fileData);
 }
