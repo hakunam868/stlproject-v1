@@ -107,7 +107,6 @@ fn parse_binary(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
             read_vec3(&bytes[offset + 24..offset + 36])?,
             read_vec3(&bytes[offset + 36..offset + 48])?,
         ];
-        validate_triangle(vertices, number)?;
         triangles.push(Triangle { normal, vertices });
     }
     Ok(triangles)
@@ -164,7 +163,10 @@ fn parse_ascii(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
             let mut vertices = [Vec3::ZERO; 3];
             for vertex in &mut vertices {
                 let line = lines.next().ok_or_else(|| {
-                    StlError::Invalid("unexpected end while reading vertices".into())
+                    StlError::Invalid(format!(
+                        "unexpected end while reading vertices near triangle {}",
+                        triangles.len()
+                    ))
                 })?;
                 let parts: Vec<_> = line.split_whitespace().collect();
                 if parts.len() != 4 || parts[0] != "vertex" {
@@ -174,7 +176,6 @@ fn parse_ascii(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
             }
             expect_line(&mut lines, "endloop", triangles.len())?;
             expect_line(&mut lines, "endfacet", triangles.len())?;
-            validate_triangle(vertices, triangles.len())?;
             triangles.push(Triangle { normal, vertices });
         }
         let Some(next) = lines.next() else {
@@ -212,18 +213,11 @@ fn expect_line<'a>(
 ) -> Result<(), StlError> {
     match lines.next() {
         Some(line) if line == expected => Ok(()),
-        _ => Err(StlError::Invalid(format!(
+        None => Err(StlError::Invalid(format!(
+            "unexpected end while expecting '{expected}' near triangle {triangle}"
+        ))),
+        Some(_) => Err(StlError::Invalid(format!(
             "expected '{expected}' near triangle {triangle}"
         ))),
-    }
-}
-
-fn validate_triangle(vertices: [Vec3; 3], number: usize) -> Result<(), StlError> {
-    if vertices.into_iter().all(Vec3::is_finite) {
-        Ok(())
-    } else {
-        Err(StlError::Invalid(format!(
-            "triangle {number} has non-finite vertices"
-        )))
     }
 }
