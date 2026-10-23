@@ -140,6 +140,9 @@ fn read_vec3(bytes: &[u8]) -> Result<Vec3, StlError> {
 fn parse_ascii(bytes: &[u8]) -> Result<Vec<Triangle>, StlError> {
     let text = std::str::from_utf8(bytes)
         .map_err(|_| StlError::Invalid("ASCII STL is not UTF-8".into()))?;
+    // Some Windows tools prepend a UTF-8 BOM (U+FEFF); strip it so the first
+    // line still begins with 'solid'.
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
     let first = lines
         .next()
