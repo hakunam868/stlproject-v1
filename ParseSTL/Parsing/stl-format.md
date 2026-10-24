@@ -1,6 +1,6 @@
 # STL Format Notes
 
-Binary STL is selected when its 80-byte header, little-endian triangle count, and exact `84 + 50 * count` file length agree. This safely handles binary headers that begin with `solid`. Otherwise, valid UTF-8 is parsed as strict ASCII STL with `solid`, `facet normal`, `outer loop`, exactly three `vertex` records, `endloop`, `endfacet`, and `endsolid`.
+Binary STL is selected when its 80-byte header and little-endian triangle count describe a payload that fits in the file. If a UTF-8 file also matches that length rule, it is treated as ASCII only when the complete file parses as ASCII STL; otherwise, the binary interpretation is retained. This handles binary headers that begin with `solid` while avoiding accidental binary classification of a valid ASCII file. ASCII parsing requires `solid`, `facet normal`, `outer loop`, exactly three `vertex` records, `endloop`, `endfacet`, and `endsolid`.
 
 Both paths reject non-finite coordinates and report malformed structure through `Result`. File normals are retained but geometric checks calculate areas and shape from vertex positions. Duplicate vertices use exact `f32` values, with signed zero normalized; nearby coordinates are intentionally not welded.
 

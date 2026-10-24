@@ -67,16 +67,31 @@ pub fn parse_bytes(bytes: &[u8]) -> Result<ParsedStl, StlError> {
 }
 
 pub fn detect_format(bytes: &[u8]) -> Result<StlFormat, StlError> {
-    if bytes.len() >= 84 {
+    let binary_candidate = if bytes.len() >= 84 {
         let count = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
         if count
             .checked_mul(50)
             .and_then(|size| size.checked_add(84))
             .is_some_and(|size| size <= bytes.len())
         {
-            return Ok(StlFormat::Binary);
+            true
+        } else {
+            false
         }
+    } else {
+        false
+    };
+
+    if binary_candidate {
+        // The binary length equation can match a UTF-8 ASCII file by chance.
+        // Prefer ASCII only when the complete text parses as an STL; binary
+        // headers that happen to start with "solid" still fall back to binary.
+        if std::str::from_utf8(bytes).is_ok() && parse_ascii(bytes).is_ok() {
+            return Ok(StlFormat::Ascii);
+        }
+        return Ok(StlFormat::Binary);
     }
+
     if std::str::from_utf8(bytes).is_ok() {
         Ok(StlFormat::Ascii)
     } else {
