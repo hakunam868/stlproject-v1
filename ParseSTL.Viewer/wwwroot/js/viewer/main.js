@@ -20,7 +20,7 @@ function loadFileImport(files) {
                 handleSTLFile(file, false);
                 break;
             case "3mf":
-                handle3MFFile(file);
+                handle3MFFile(file, false);
                 break;
             case "step":
             case "iges":
@@ -28,7 +28,7 @@ function loadFileImport(files) {
             case "stp":
             case "igs":
             case "brp":
-                handleSTEPFile(file, fileExtension);
+                handleSTEPFile(file, fileExtension, false);
                 break;
             default:
                 console.error("Unsupported file format");
@@ -108,24 +108,37 @@ document.getElementById("fileImport").addEventListener("change", function (e) {
     e.stopPropagation();
 });
 
+document.getElementById("exportStlBtn").addEventListener("click", function () {
+    try {
+        exportSTL([renderer.main_group, renderer.isolated_group]);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Could not export STL:", error);
+        showToast(`Could not export STL: ${message}`, true);
+    }
+});
+
 renderer.canvas.addEventListener("mousemove", (event) => {
     event.preventDefault();
-    renderer.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    renderer.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const bounds = renderer.canvas.getBoundingClientRect();
+    if (bounds.width === 0 || bounds.height === 0) return;
+
+    renderer.mouse.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+    renderer.mouse.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
 });
 
 var mouse_click_x = 0;
 var mouse_click_y = 0;
 
 renderer.canvas.addEventListener("mousedown", (event) => {
-    if (event.button === 2) {
-        mouse_click_x = event.clientX;
-        mouse_click_y = event.clientY;
-    }
+    mouse_click_x = event.clientX;
+    mouse_click_y = event.clientY;
 });
 
 // This is to handle right click callback on 3D Model
 renderer.canvas.addEventListener("mouseup", (event) => {
+    if (Math.hypot(event.clientX - mouse_click_x, event.clientY - mouse_click_y) > 4) return;
+
     var intersects;
     if (renderer.mode == 0)
         intersects = renderer.raycaster.intersectObjects(
@@ -140,7 +153,7 @@ renderer.canvas.addEventListener("mouseup", (event) => {
         if (event.button == 0) {
             deselectAll();
             select(intersects[0].object.userData.shell);
-        } else if ((event.button = 2)) {
+        } else if (event.button === 2) {
             // if (ContextMenu.ref)
             // ContextMenu.show();
         }
@@ -275,6 +288,46 @@ function frameBoundingBox(bounds, viewDirection) {
     renderer.orbit_controls.update();
     return true;
 }
+
+function updateCameraFarPlane() {
+    const bounds = new THREE.Box3();
+    bounds.expandByObject(renderer.main_group);
+    bounds.expandByObject(renderer.isolated_group);
+    if (bounds.isEmpty()) return;
+
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const requiredFar =
+        renderer.camera.position.distanceTo(sphere.center) + sphere.radius;
+
+    if (requiredFar > renderer.camera.far) {
+        renderer.camera.far = Math.max(
+            requiredFar * 1.1,
+            renderer.camera.near * 10
+        );
+        renderer.camera.updateProjectionMatrix();
+    }
+}
+
+renderer.orbit_controls.addEventListener("change", updateCameraFarPlane);
+
+renderer.canvas.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+
+    const key = event.key.toLowerCase();
+    if (key !== "q" && key !== "e") return;
+
+    event.preventDefault();
+    const viewAxis = renderer.orbit_controls.target
+        .clone()
+        .sub(renderer.camera.position)
+        .normalize();
+    if (viewAxis.lengthSq() === 0) return;
+
+    const rollAngle = key === "q" ? Math.PI / 36 : -Math.PI / 36;
+    renderer.camera.up.applyAxisAngle(viewAxis, rollAngle).normalize();
+    renderer.camera.lookAt(renderer.orbit_controls.target);
+    renderer.orbit_controls.update();
+});
 
 function frameView() {
     const bounds = new THREE.Box3().setFromObject(renderer.main_group);

@@ -54,7 +54,7 @@ public class ViewerViewModel
     [JSInvokable]
     public Byte[] jsFetch(string filename)
     {
-        filename = filename.Split('/').Last();
+        filename = filename.Split('?', '#')[0].Split('/', '\\').Last();
         string embeddedFileName = "occt-import-js.wasm";
         string embeddedResourceName = "ParseSTL.Viewer.Viewer3D." + embeddedFileName;
         var assembly = Assembly.GetExecutingAssembly();

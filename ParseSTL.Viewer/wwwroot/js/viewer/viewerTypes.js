@@ -17,6 +17,10 @@
         this.cameraOrtho.position.z = 10;
 
         this.canvas = this.renderer.domElement;
+        this.canvas.tabIndex = 0;
+        this.canvas.title =
+            "Left-drag to yaw and pitch; press Q/E to roll; right-drag to pan; scroll to zoom.";
+        this.canvas.setAttribute("aria-label", "3D model viewer controls");
         this.orbit_controls = new THREE.OrbitControls(this.camera, this.canvas);
         this.transform_controls = new THREE.TransformControls(
             this.camera,
@@ -40,8 +44,9 @@
         this.renderer.setClearColor(0x000000, 0);
 
         this.orbit_controls.mouseButtons = {
-            MIDDLE: THREE.MOUSE.PAN,
-            RIGHT: THREE.MOUSE.ROTATE,
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN,
         };
 
         // Adding many light in 3D

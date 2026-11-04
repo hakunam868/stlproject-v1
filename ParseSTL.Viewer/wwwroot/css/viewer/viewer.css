@@ -57,6 +57,16 @@ body {
             background-color: #c7c0c0;
         }
 
+#exportStlBtn {
+        min-width: 30px;
+        min-height: 30px;
+        border-radius: 4px;
+        background-color: #e2e8f0;
+        color: #334155;
+        font-size: 10px;
+        font-weight: 700;
+}
+
 .toggle_selection_mode {
     display: flex;
     flex-direction: column;

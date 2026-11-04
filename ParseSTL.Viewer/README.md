@@ -16,6 +16,8 @@ Then open http://localhost:5317.
 
 - **Open** (folder icon) loads a model, replacing the current one; **Import** (cloud icon) adds a model to the scene.
 - Formats: STL, 3MF, STEP/STP, IGES/IGS, BREP/BRP. STEP/IGES/BREP use OpenCascade compiled to WebAssembly (`occt-import-js`).
+- **Export STL** downloads the visible scene as a binary STL file.
+- Controls: left-drag orbits around the model center (yaw/pitch); focus the viewer and press Q/E to roll around the view axis; right-drag pans; the wheel zooms (middle-drag also zooms).
 - Right-hand buttons: top / front / right / left / back / bottom views.
 - Context menu on a part: colour, isolate, opacity, comment.
 - **Capture** (camera icon) — same as the Maker app: the PNG is passed to C# `saveCapture`.

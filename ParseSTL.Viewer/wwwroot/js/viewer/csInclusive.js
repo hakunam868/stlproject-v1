@@ -1,28 +1,37 @@
-// THIS File contains all code which is inclusive to C# calls
+(function () {
+  const browserFetch =
+    window.__viewerBrowserFetch || window.fetch.bind(window);
+  window.__viewerBrowserFetch = browserFetch;
 
-function fetch(filename) {
-  return new Promise((resolve, reject) => {
-    viewerData
-      ?.jsFetch(filename)
-        .then((result) => {
-            console.log("jsFetch",result);
-        let blob = new Blob([new Uint8Array(result).buffer], {
-          type: "application/wasm",
-        });
+  window.fetch = function (resource, options) {
+    const url =
+      typeof resource === "string"
+        ? resource
+        : resource instanceof URL
+          ? resource.href
+          : resource?.url;
+    if (typeof url !== "string") {
+      return browserFetch(resource, options);
+    }
 
-        const response = new Response(blob, {
-          status: 200, // Adjust as needed
-          statusText: "OK", // Adjust as needed
-          headers: {
-            // Add any headers you need
-            "Content-Type": "application/wasm", // Adjust as needed
-          },
-        });
+    const filename = url.split(/[?#]/, 1)[0].split(/[\\/]/).pop();
 
-        resolve(response);
-      })
-      .catch((err) => {
-        reject(err);
+    if (filename !== "occt-import-js.wasm" || !window.viewerData?.jsFetch) {
+      return browserFetch(resource, options);
+    }
+
+    return window.viewerData.jsFetch(url).then((result) => {
+      const blob = new Blob([new Uint8Array(result).buffer], {
+        type: "application/wasm",
       });
-  });
-}
+
+      return new Response(blob, {
+        status: 200,
+        statusText: "OK",
+        headers: {
+          "Content-Type": "application/wasm",
+        },
+      });
+    });
+  };
+})();
