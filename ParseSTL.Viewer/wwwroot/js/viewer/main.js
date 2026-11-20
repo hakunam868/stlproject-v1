@@ -1,3 +1,34 @@
+const cadWorkspace = document.querySelector(".cad-workspace");
+const themeToggle = document.getElementById("themeToggle");
+const themeModeLabel = document.getElementById("themeModeLabel");
+
+function applyTheme(theme) {
+    const isDark = theme === "dark";
+    cadWorkspace.dataset.theme = isDark ? "dark" : "light";
+    themeToggle.checked = isDark;
+    themeToggle.setAttribute("aria-checked", String(isDark));
+    themeToggle.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+    themeModeLabel.textContent = isDark ? "DARK" : "LIGHT";
+}
+
+let savedTheme = "light";
+try {
+    savedTheme = window.localStorage.getItem("stl-viewer-theme") || "light";
+} catch (error) {
+    console.warn("Could not read the saved theme preference:", error);
+}
+applyTheme(savedTheme);
+
+themeToggle.addEventListener("change", () => {
+    const theme = themeToggle.checked ? "dark" : "light";
+    applyTheme(theme);
+    try {
+        window.localStorage.setItem("stl-viewer-theme", theme);
+    } catch (error) {
+        console.warn("Could not save the theme preference:", error);
+    }
+});
+
 var container = document.querySelector(".viewer");
 var renderer = new Renderer(container);
 
@@ -41,7 +72,7 @@ function loadFile(files) {
     //clear Previous 3D models
     renderer.main_group.clear();
 
-    while (assemblies.children.length > 2) {
+    while (assemblies.firstChild) {
         assemblies.removeChild(assemblies.lastChild);
     }
 

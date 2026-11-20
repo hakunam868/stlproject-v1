@@ -31,133 +31,184 @@
 </script>
 
 <div id="toastMessage" class="toast" role="status" aria-live="polite"></div>
-<div class="assemblies" id="assemblies"></div>
-<div class="p-2">
-    <div class="navbar_left">
-        <input type="file" id="fileInput" style="display: none" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
-        <button id="loadFileBtn" class="capture_btn" title="Open">
-            <img src="@($"{baseUrl}images/folder_open.svg")" alt="" height="30" width="30" />
-        </button>
-        <input type="file" id="fileImport" style="display: none" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
-        <button id="loadFileImport" class="capture_btn" title="Import">
-            <img src="@($"{baseUrl}images/cloud_download.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="capture" class="capture_btn" title="Capture">
-            <img src="@($"{baseUrl}images/camera.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="exportStlBtn" class="capture_btn" title="Export STL" aria-label="Export STL">
-            STL
-        </button>
-        <div class="toggle_selection_mode">
+<div class="cad-workspace">
+    <header class="app-header">
+        <div class="brand">
+            <img src="@($"{baseUrl}images/logo-icon.png")" alt="" class="brand-mark" />
+            <span class="brand-name">MAK3R</span>
+            <span class="brand-divider"></span>
+            <span class="product-name">STL Viewer</span>
+        </div>
+        <div class="document-title">
+            <span class="document-status"></span>
+            <span>Untitled design</span>
+        </div>
+        <div class="header-caption">3D DESIGN WORKSPACE</div>
+    </header>
+
+    <div class="command-bar">
+        <input type="file" id="fileInput" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
+        <input type="file" id="fileImport" accept=".stl,.igs,.brp,.step,.stp,.iges,.brep,.3mf" />
+        <div class="command-group">
+            <span class="command-group-label">FILE</span>
+            <button id="loadFileBtn" class="capture_btn command-button" title="Open a model">
+                <img src="@($"{baseUrl}images/folder_open.svg")" alt="" />
+                <span>Open</span>
+            </button>
+            <button id="loadFileImport" class="capture_btn command-button" title="Import a model into this design">
+                <img src="@($"{baseUrl}images/cloud_download.svg")" alt="" />
+                <span>Import</span>
+            </button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="command-group">
+            <span class="command-group-label">OUTPUT</span>
+            <button id="capture" class="capture_btn command-button" title="Capture viewport as an image">
+                <img src="@($"{baseUrl}images/camera.svg")" alt="" />
+                <span>Capture</span>
+            </button>
+            <button id="exportStlBtn" class="capture_btn command-button export-button" title="Export model as STL" aria-label="Export STL">
+                <span class="stl-icon">STL</span>
+                <span>Export STL</span>
+            </button>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <fieldset class="toggle_selection_mode" aria-label="Selection mode">
+            <legend>SELECTION</legend>
             <label class="toggle-label">
                 <input type="radio" name="mode" value="assembly" />
-                Assembly
+                <span>Assembly</span>
             </label>
             <label class="toggle-label">
                 <input type="radio" name="mode" value="shell" />
-                Part
+                <span>Part</span>
             </label>
-
             <label class="toggle-label">
                 <input type="radio" name="mode" value="surface" checked />
-                Surface
+                <span>Surface</span>
             </label>
-        </div>
+        </fieldset>
+        <label class="theme-control">
+            <span class="theme-control-caption">THEME</span>
+            <span class="theme-control-content">
+                <span id="themeModeLabel" class="theme-mode-label">LIGHT</span>
+                <input id="themeToggle" type="checkbox" role="switch" aria-label="Dark mode" aria-checked="false" />
+                <span class="theme-switch-track" aria-hidden="true">
+                    <span class="theme-switch-knob"></span>
+                </span>
+            </span>
+        </label>
     </div>
-    <!-- //center -->
-    <div id="loader" class="loader hidden"></div>
 
-    <div class="content-container">
-        <div class="config">
-            <div id="ContextMenu">
-                <div id="shellConfig">
-                    <h5 class="grab_menu">:::</h5>
-                    <div class="menu-item hover-effect">
-                        <input type="color"
-                               class="icon-wrapper mr"
-                               name="color"
-                               id="color" />
-                        <p>Color</p>
-                    </div>
-                    <div class="menu-item hover-effect" id="isolatePart">
-                        <img src="@($"{baseUrl}images/eyeshow.png")"
-                             class="icon-wrapper mr" />
-                        <p id="isolatePartText">Isolate part</p>
-                    </div>
-                    <hr />
-                    <div>
-                        <div class="menu-item">
-                            <p>Opacity</p>
+    <div class="workspace-body">
+        <aside class="model-browser" aria-label="Model browser">
+            <div class="panel-heading">
+                <div>
+                    <span class="panel-eyebrow">DESIGN</span>
+                    <h1>Model browser</h1>
+                </div>
+                <span class="browser-menu-mark" aria-hidden="true">•••</span>
+            </div>
+            <div class="browser-section-label">COMPONENTS</div>
+            <div class="assemblies" id="assemblies"></div>
+            <div class="browser-empty">
+                <div class="empty-model-icon" aria-hidden="true">◇</div>
+                <strong>No model loaded</strong>
+                <span>Open or drop a CAD file to get started.</span>
+            </div>
+            <div class="browser-footer">
+                <span class="browser-footer-dot"></span>
+                <span>Design contents</span>
+            </div>
+        </aside>
+
+        <main class="viewport-area" aria-label="3D workspace">
+            <div id="loader" class="loader hidden" role="status" aria-label="Loading model"></div>
+            <div class="viewport-toolbar">
+                <span class="viewport-tag"><span class="viewport-tag-dot"></span> MODEL SPACE</span>
+                <span class="viewport-hint">Perspective</span>
+            </div>
+            <div class="config">
+                <div id="ContextMenu">
+                    <div id="shellConfig">
+                        <h5 class="grab_menu">•••</h5>
+                        <div class="menu-item hover-effect">
+                            <input type="color"
+                                   class="icon-wrapper mr"
+                                   name="color"
+                                   id="color" />
+                            <p>Color</p>
                         </div>
-                        <input type="range"
-                               name="opacity"
-                               id="opacity"
-                               min="0"
-                               max="100"
-                               value="44"
-                               class="slider" />
-                    </div>
-                    <hr />
-                    <div class="menu-item">
-                        <input type="text"
-                               name="annotate"
-                               id="annotate"
-                               placeholder="Comment"
-                               autocomplete="off"
-                               class="Comment" />
+                        <div class="menu-item hover-effect" id="isolatePart">
+                            <img src="@($"{baseUrl}images/eyeshow.png")"
+                                 class="icon-wrapper mr" alt="" />
+                            <p id="isolatePartText">Isolate part</p>
+                        </div>
+                        <hr />
+                        <div>
+                            <div class="menu-item">
+                                <p>Opacity</p>
+                            </div>
+                            <input type="range"
+                                   name="opacity"
+                                   id="opacity"
+                                   min="0"
+                                   max="100"
+                                   value="44"
+                                   class="slider" />
+                        </div>
+                        <hr />
+                        <div class="menu-item">
+                            <input type="text"
+                                   name="annotate"
+                                   id="annotate"
+                                   placeholder="Comment"
+                                   autocomplete="off"
+                                   class="Comment" />
+                        </div>
                     </div>
                 </div>
+                <div class="dropSections">
+                    <div class="cad_drop drop">Drop CAD here</div>
+                    <div class="scan_drop drop">Drop Scan here</div>
+                </div>
             </div>
-            <style>
-                .dropSections {
-                    display: flex;
-                    flex-direction: row;
-                    border: 20px rgba(175, 175, 175, 0.308) solid;
-                    position: fixed;
-                    left: 50%;
-                    top: 50%;
-                    transform: translateX(-50%) translateY(-50%);
-                    display: none;
-                    pointer-events: none;
-                }
-
-                .drop {
-                    background-color: rgba(220, 220, 220, 0.356);
-                    padding-inline: 40px;
-                    padding-block: 60px;
-                    white-space: nowrap;
-                }
-            </style>
-            <div class="dropSections">
-                <div class="cad_drop drop">Drop CAD here</div>
-                <div class="scan_drop drop">Drop Scan here</div>
+            <div class="viewer">
+                <div class="viewport-empty-state">
+                    <div class="viewport-empty-crosshair" aria-hidden="true">+</div>
+                    <strong>Your model will appear here</strong>
+                    <span>Drag to orbit <i></i> Scroll to zoom <i></i> Right-drag to pan</span>
+                </div>
             </div>
-        </div>
-
-        <div class="viewer"></div>
+            <div class="navbar_right" aria-label="Standard views">
+                <span class="view-control-label">VIEWS</span>
+                <button id="topViewBtn" class="nav_btn" title="Top View" aria-label="Top view">
+                    <img src="@($"{baseUrl}images/top_view.svg")" alt="" />
+                </button>
+                <button id="frontViewBtn" class="nav_btn" title="Front View" aria-label="Front view">
+                    <img src="@($"{baseUrl}images/front_view.svg")" alt="" />
+                </button>
+                <button id="rightViewBtn" class="nav_btn" title="Right View" aria-label="Right view">
+                    <img src="@($"{baseUrl}images/right_view.svg")" alt="" />
+                </button>
+                <button id="leftViewBtn" class="nav_btn" title="Left View" aria-label="Left view">
+                    <img src="@($"{baseUrl}images/left_view.svg")" alt="" />
+                </button>
+                <button id="backViewBtn" class="nav_btn" title="Back View" aria-label="Back view">
+                    <img src="@($"{baseUrl}images/back_view.svg")" alt="" />
+                </button>
+                <button id="bottomViewBtn" class="nav_btn" title="Bottom View" aria-label="Bottom view">
+                    <img src="@($"{baseUrl}images/bottom_view.svg")" alt="" />
+                </button>
+            </div>
+        </main>
     </div>
 
-    <!-- Right Navbar -->
-    <div class="navbar_right">
-        <button id="topViewBtn" class="nav_btn" title="Top View">
-            <img src="@($"{baseUrl}images/top_view.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="frontViewBtn" class="nav_btn" title="Front View">
-            <img src="@($"{baseUrl}images/front_view.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="rightViewBtn" class="nav_btn" title="Right View">
-            <img src="@($"{baseUrl}images/right_view.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="leftViewBtn" class="nav_btn" title="Left View">
-            <img src="@($"{baseUrl}images/left_view.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="backViewBtn" class="nav_btn" title="Back View">
-            <img src="@($"{baseUrl}images/back_view.svg")" alt="" height="30" width="30" />
-        </button>
-        <button id="bottomViewBtn" class="nav_btn" title="Bottom View">
-            <img src="@($"{baseUrl}images/bottom_view.svg")" alt="" height="30" width="30" />
-        </button>
-    </div>
+    <footer class="status-bar">
+        <span class="status-ready"><span></span> Ready</span>
+        <span class="status-message">3D VIEWPORT</span>
+        <span class="status-shortcuts">Orbit · Pan · Zoom</span>
+    </footer>
 </div>
 
 @code {
